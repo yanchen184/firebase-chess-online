@@ -1,0 +1,234 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { useGame } from '../hooks/useGame';
+import ChessBoard from './ChessBoard';
+import { getPlayerColor, isPlayerTurn } from '../utils/chessUtils';
+
+/**
+ * Game component that displays the current chess game.
+ * Handles game state and player interactions.
+ */
+const Game = () => {
+  const { gameId } = useParams();
+  const { currentUser } = useAuth();
+  const { 
+    currentGame, 
+    loading, 
+    error, 
+    makeMove, 
+    joinGame, 
+    listenToGame
+  } = useGame();
+  
+  const [gameError, setGameError] = useState('');
+  const [gameLoading, setGameLoading] = useState(false);
+  const navigate = useNavigate();
+  
+  // Listen to game updates
+  useEffect(() => {
+    const unsubscribe = listenToGame(gameId);
+    return () => unsubscribe();
+  }, [gameId, listenToGame]);
+  
+  // Handle moving a piece
+  const handleMove = async (from, to, piece) => {
+    try {
+      setGameLoading(true);
+      setGameError('');
+      await makeMove(gameId, from, to, piece);
+    } catch (error) {
+      setGameError(error.message);
+    } finally {
+      setGameLoading(false);
+    }
+  };
+  
+  // Handle joining a game
+  const handleJoinGame = async () => {
+    try {
+      setGameLoading(true);
+      setGameError('');
+      await joinGame(gameId);
+    } catch (error) {
+      setGameError(error.message);
+    } finally {
+      setGameLoading(false);
+    }
+  };
+  
+  // Handle going back to dashboard
+  const handleBackToDashboard = () => {
+    navigate('/');
+  };
+  
+  // Loading state
+  if (loading && !currentGame) {
+    return <div className="text-center py-8">Loading game...</div>;
+  }
+  
+  // Error state
+  if (error || !currentGame) {
+    return (
+      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
+        <h2 className="text-xl font-bold mb-4">Error</h2>
+        <p className="text-red-600 mb-4">{error || 'Game not found'}</p>
+        <button
+          onClick={handleBackToDashboard}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+  
+  const playerColor = getPlayerColor(currentUser.uid, currentGame);
+  const isMyTurn = isPlayerTurn(currentUser.uid, currentGame);
+  const isPending = currentGame.status === 'pending';
+  const isPlayer = playerColor !== null;
+  
+  // Get opponent info
+  const opponent = playerColor === 'white' 
+    ? currentGame.blackPlayer 
+    : currentGame.whitePlayer;
+  
+  // Pending invitation that belongs to the current user
+  const isPendingInvitation = isPending && currentGame.blackPlayer.email === currentUser.email;
+  
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-4 flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Chess Game</h1>
+        <button
+          onClick={handleBackToDashboard}
+          className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {/* Game status section */}
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <div>
+            <span className="font-bold">Status:</span>{' '}
+            <span className="capitalize">{currentGame.status}</span>
+          </div>
+          <div>
+            <span className="font-bold">Current Turn:</span>{' '}
+            <span className="capitalize">{currentGame.currentTurn}</span>
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="font-bold">White:</span>{' '}
+            {currentGame.whitePlayer.displayName || currentGame.whitePlayer.email}
+          </div>
+          <div>
+            <span className="font-bold">Black:</span>{' '}
+            {currentGame.blackPlayer.displayName || currentGame.blackPlayer.email || 'Waiting for opponent'}
+          </div>
+        </div>
+        
+        {isMyTurn && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mt-3">
+            It's your turn!
+          </div>
+        )}
+        
+        {isPendingInvitation && (
+          <div className="mt-4">
+            <p className="mb-2">You've been invited to play this game!</p>
+            <button
+              onClick={handleJoinGame}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              disabled={gameLoading}
+            >
+              {gameLoading ? 'Joining game...' : 'Join Game'}
+            </button>
+          </div>
+        )}
+        
+        {gameError && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mt-3">
+            {gameError}
+          </div>
+        )}
+      </div>
+      
+      {/* Game board section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        {isPending && !isPendingInvitation ? (
+          <div className="text-center py-4">
+            <p className="mb-3">Waiting for your opponent to join...</p>
+            <p className="text-sm">
+              Send this game ID to your opponent: <strong>{gameId}</strong>
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center">
+            <div className="w-full max-w-lg">
+              <ChessBoard
+                board={currentGame.board}
+                currentTurn={currentGame.currentTurn}
+                onMove={handleMove}
+                userId={currentUser.uid}
+                game={currentGame}
+              />
+            </div>
+            
+            {!isPlayer && (
+              <div className="mt-4 text-center">
+                <p>You are viewing this game as a spectator.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Move history section */}
+      {currentGame.moves && currentGame.moves.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h2 className="text-xl font-bold mb-4">Move History</h2>
+          <div className="max-h-60 overflow-y-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="px-4 py-2">#</th>
+                  <th className="px-4 py-2">Player</th>
+                  <th className="px-4 py-2">From</th>
+                  <th className="px-4 py-2">To</th>
+                  <th className="px-4 py-2">Piece</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentGame.moves.map((move, index) => {
+                  const playerInfo = 
+                    move.player === currentGame.whitePlayer.uid
+                      ? currentGame.whitePlayer
+                      : currentGame.blackPlayer;
+                  
+                  return (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                      <td className="border px-4 py-2 text-center">{index + 1}</td>
+                      <td className="border px-4 py-2">
+                        {playerInfo.displayName || playerInfo.email}
+                      </td>
+                      <td className="border px-4 py-2 text-center">{move.from}</td>
+                      <td className="border px-4 py-2 text-center">{move.to}</td>
+                      <td className="border px-4 py-2 text-center">{move.piece?.type}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Game;
