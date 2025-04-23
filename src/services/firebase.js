@@ -3,14 +3,15 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Firebase configuration
-// TODO: Replace with your Firebase project config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyARLxyx3ZdO9R0FOekKhsh_y9J2Zc3-Iqc",
+  authDomain: "choicelight-99618.firebaseapp.com",
+  databaseURL: "https://choicelight-99618-default-rtdb.firebaseio.com",
+  projectId: "choicelight-99618",
+  storageBucket: "choicelight-99618.appspot.com",
+  messagingSenderId: "978242494736",
+  appId: "1:978242494736:web:71fde3873636b993358595",
+  measurementId: "G-WGWZ8LMS9P",
 };
 
 // Initialize Firebase
