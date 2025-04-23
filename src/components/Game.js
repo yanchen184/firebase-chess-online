@@ -88,11 +88,6 @@ const Game = () => {
   const isPending = currentGame.status === 'pending';
   const isPlayer = playerColor !== null;
   
-  // Get opponent info
-  const opponent = playerColor === 'white' 
-    ? currentGame.blackPlayer 
-    : currentGame.whitePlayer;
-  
   // Pending invitation that belongs to the current user
   const isPendingInvitation = isPending && currentGame.blackPlayer.email === currentUser.email;
   
