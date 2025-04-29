@@ -40,34 +40,20 @@
    npm install
    ```
 
-3. 配置Firebase
-   - 在Firebase控制台创建一个新项目
-   - 启用Authentication和Firestore服务
-   - 复制`.env.example`文件为`.env.local`
-   - 在`.env.local`文件中更新Firebase配置变量
-
-4. 启动开发服务器
+3. 启动开发服务器
    ```bash
    npm start
    ```
 
-5. 打开浏览器访问 http://localhost:3000
+4. 打开浏览器访问 http://localhost:3000
 
-## 环境变量设置
+## Firebase 设置
 
-本项目使用环境变量来存储Firebase配置。您需要在`.env.local`文件中设置以下变量：
+本项目使用与 choiceLight 项目相同的 Firebase 配置，已在代码中设置好。如果遇到认证问题，请确保在 Firebase 控制台中：
 
-```
-REACT_APP_FIREBASE_API_KEY=your_api_key_here
-REACT_APP_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-REACT_APP_FIREBASE_PROJECT_ID=your_project_id
-REACT_APP_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-REACT_APP_FIREBASE_APP_ID=your_app_id
-REACT_APP_FIREBASE_MEASUREMENT_ID=your_measurement_id
-```
-
-这些值可以在Firebase控制台的项目设置中找到。
+1. 项目 `choicelight-99618` 存在且状态正常
+2. 已启用 Email/Password 认证方法
+3. 已创建 Firestore 数据库（如果尚未创建）
 
 ## 如何玩
 
@@ -82,30 +68,29 @@ REACT_APP_FIREBASE_MEASUREMENT_ID=your_measurement_id
 
 项目配置了GitHub Actions，当代码推送到main分支时会自动构建并部署到GitHub Pages。
 
-要使用GitHub Actions部署，您需要在GitHub仓库设置中添加以下Secrets：
-
-- `FIREBASE_API_KEY`
-- `FIREBASE_AUTH_DOMAIN`
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_STORAGE_BUCKET`
-- `FIREBASE_MESSAGING_SENDER_ID`
-- `FIREBASE_APP_ID`
-- `FIREBASE_MEASUREMENT_ID`
-
 ## 故障排除
 
-如果遇到 "CONFIGURATION_NOT_FOUND" 错误，请检查：
+如果遇到 "CONFIGURATION_NOT_FOUND" 错误，请尝试以下解决方案：
 
-1. Firebase项目配置是否正确
-2. 是否已在Firebase控制台中启用Email/Password认证方法
-3. 环境变量是否正确设置
+1. 确保在 Firebase 控制台中启用了 Authentication 服务
+   - 登录 [Firebase 控制台](https://console.firebase.google.com/)
+   - 选择项目 "choicelight-99618"
+   - 点击左侧导航栏中的 "Authentication"
+   - 进入 "Sign-in method" 标签
+   - 确保 "Email/Password" 方法已启用
+
+2. 确保在 Firebase 控制台中创建了 Firestore 数据库
+   - 在同一项目中点击 "Firestore Database"
+   - 如果尚未创建，点击 "创建数据库"
+   - 选择适当的起始模式（测试模式或生产模式）
+
+3. 检查浏览器控制台中的详细错误信息，以获取更多诊断信息
 
 ## 更新日志
 
 ### v1.0.1 (2025-04-29)
-- 修复了Firebase认证配置问题
-- 添加了环境变量支持，提高安全性
-- 改进了项目文档
+- 改进错误处理和调试功能
+- 修复了 Firebase 认证配置问题
 
 ### v1.0.0 (2025-04-23)
 - 初始版本发布
