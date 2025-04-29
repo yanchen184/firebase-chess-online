@@ -3,15 +3,15 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Firebase configuration
-// You can use environment variables for production deployment
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "YOUR_API_KEY",
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID",
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || "YOUR_APP_ID",
-  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "YOUR_MEASUREMENT_ID" // Optional
+  apiKey: "AIzaSyARLxyx3ZdO9R0FOekKhsh_y9J2Zc3-Iqc",
+  authDomain: "choicelight-99618.firebaseapp.com",
+  databaseURL: "https://choicelight-99618-default-rtdb.firebaseio.com",
+  projectId: "choicelight-99618",
+  storageBucket: "choicelight-99618.appspot.com",
+  messagingSenderId: "978242494736",
+  appId: "1:978242494736:web:71fde3873636b993358595",
+  measurementId: "G-WGWZ8LMS9P",
 };
 
 // Initialize Firebase
