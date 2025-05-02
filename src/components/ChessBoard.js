@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { getPieceSymbol, positionToIndices, indicesToPosition, isPlayerTurn, getPlayerColor } from '../utils/chessUtils';
+import { 
+  getPieceSymbol, 
+  positionToIndices, 
+  indicesToPosition, 
+  isPlayerTurn, 
+  getPlayerColor,
+  getPieceAtPosition,
+  setPieceAtPosition
+} from '../utils/chessUtils';
 
 /**
  * ChessBoard component displays the chess board and handles piece movement.
  * @param {Object} props - Component props
- * @param {Array} props.board - 2D array representing the current board state
+ * @param {Array} props.board - Array of objects representing the board state
  * @param {string} props.currentTurn - Current turn ('white' or 'black')
  * @param {Function} props.onMove - Callback function when a move is made
  * @param {string} props.userId - Current user ID
@@ -35,12 +43,11 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
     if (!canPlay) return;
     
     const position = indicesToPosition(row, col);
-    const piece = board[row][col];
+    const piece = getPieceAtPosition(board, position);
     
     // If a piece is already selected
     if (selectedSquare) {
-      const [selectedRow, selectedCol] = positionToIndices(selectedSquare);
-      const selectedPiece = board[selectedRow][selectedCol];
+      const selectedPiece = getPieceAtPosition(board, selectedSquare);
       
       // If the clicked square is one of the valid moves, make the move
       if (validMoves.includes(position)) {
@@ -110,12 +117,15 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
     const startRow = color === 'white' ? 6 : 1;
     
     // Move forward one square
-    if (isValidSquare(row + direction, col) && !board[row + direction][col]) {
-      moves.push(indicesToPosition(row + direction, col));
+    const forwardPos = indicesToPosition(row + direction, col);
+    if (isValidSquare(row + direction, col) && !getPieceAtPosition(board, forwardPos)) {
+      moves.push(forwardPos);
       
       // Move forward two squares from starting position
-      if (row === startRow && isValidSquare(row + 2 * direction, col) && !board[row + 2 * direction][col]) {
-        moves.push(indicesToPosition(row + 2 * direction, col));
+      const twoForwardPos = indicesToPosition(row + 2 * direction, col);
+      if (row === startRow && isValidSquare(row + 2 * direction, col) && 
+          !getPieceAtPosition(board, twoForwardPos)) {
+        moves.push(twoForwardPos);
       }
     }
     
@@ -124,8 +134,13 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       const newRow = row + direction;
       const newCol = col + offset;
       
-      if (isValidSquare(newRow, newCol) && board[newRow][newCol] && board[newRow][newCol].color !== color) {
-        moves.push(indicesToPosition(newRow, newCol));
+      if (isValidSquare(newRow, newCol)) {
+        const diagPos = indicesToPosition(newRow, newCol);
+        const targetPiece = getPieceAtPosition(board, diagPos);
+        
+        if (targetPiece && targetPiece.color !== color) {
+          moves.push(diagPos);
+        }
       }
     }
   };
@@ -139,14 +154,15 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       let newCol = col + dy;
       
       while (isValidSquare(newRow, newCol)) {
-        const targetPiece = board[newRow][newCol];
+        const position = indicesToPosition(newRow, newCol);
+        const targetPiece = getPieceAtPosition(board, position);
         
         if (!targetPiece) {
           // Empty square - valid move
-          moves.push(indicesToPosition(newRow, newCol));
+          moves.push(position);
         } else if (targetPiece.color !== color) {
           // Opponent's piece - valid move (capture)
-          moves.push(indicesToPosition(newRow, newCol));
+          moves.push(position);
           break;
         } else {
           // Own piece - can't move past it
@@ -171,10 +187,11 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       const newCol = col + dy;
       
       if (isValidSquare(newRow, newCol)) {
-        const targetPiece = board[newRow][newCol];
+        const position = indicesToPosition(newRow, newCol);
+        const targetPiece = getPieceAtPosition(board, position);
         
         if (!targetPiece || targetPiece.color !== color) {
-          moves.push(indicesToPosition(newRow, newCol));
+          moves.push(position);
         }
       }
     }
@@ -189,14 +206,15 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       let newCol = col + dy;
       
       while (isValidSquare(newRow, newCol)) {
-        const targetPiece = board[newRow][newCol];
+        const position = indicesToPosition(newRow, newCol);
+        const targetPiece = getPieceAtPosition(board, position);
         
         if (!targetPiece) {
           // Empty square - valid move
-          moves.push(indicesToPosition(newRow, newCol));
+          moves.push(position);
         } else if (targetPiece.color !== color) {
           // Opponent's piece - valid move (capture)
-          moves.push(indicesToPosition(newRow, newCol));
+          moves.push(position);
           break;
         } else {
           // Own piece - can't move past it
@@ -222,10 +240,11 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       const newCol = col + dy;
       
       if (isValidSquare(newRow, newCol)) {
-        const targetPiece = board[newRow][newCol];
+        const position = indicesToPosition(newRow, newCol);
+        const targetPiece = getPieceAtPosition(board, position);
         
         if (!targetPiece || targetPiece.color !== color) {
-          moves.push(indicesToPosition(newRow, newCol));
+          moves.push(position);
         }
       }
     }
@@ -248,7 +267,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
         const actualCol = flipped ? 7 - col : col;
         
         const position = indicesToPosition(actualRow, actualCol);
-        const piece = board[actualRow][actualCol];
+        const piece = getPieceAtPosition(board, position);
         
         const isSelected = selectedSquare === position;
         const isValidMove = validMoves.includes(position);
