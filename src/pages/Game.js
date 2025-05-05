@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { onSnapshot, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import ChessBoard from '../components/ChessBoard';
+import GameChat from '../components/GameChat';
+import SpectatorsList from '../components/SpectatorsList';
 import { 
-  initialBoardSetup, 
   checkGameOutcome,
-  isInCheck
+  isInCheck,
+  positionToIndices,
 } from '../utils/chess';
+import { 
+  makeMove,
+  resignGame,
+  offerDraw,
+  acceptDraw,
+  declineDraw,
+  completeGame
+} from '../services/GameService';
 import '../styles/Game.css';
 
 const Game = () => {
@@ -22,6 +32,7 @@ const Game = () => {
   const [moveHistory, setMoveHistory] = useState([]);
   const [moveNotation, setMoveNotation] = useState([]);
   const [boardPositions, setBoardPositions] = useState([]);
+  const [showChat, setShowChat] = useState(false);
   
   // Subscribe to game updates
   useEffect(() => {
@@ -31,7 +42,7 @@ const Game = () => {
       doc(db, 'games', gameId),
       (doc) => {
         if (doc.exists()) {
-          const gameData = doc.data();
+          const gameData = { id: doc.id, ...doc.data() };
           setGame(gameData);
           setLoading(false);
           
@@ -50,13 +61,13 @@ const Game = () => {
             setBoardPositions(gameData.boardPositions);
           }
         } else {
-          setError('Game not found');
+          setError('找不到遊戲');
           setLoading(false);
         }
       },
       (err) => {
         console.error('Error getting game:', err);
-        setError('Failed to load game');
+        setError('無法載入遊戲');
         setLoading(false);
       }
     );
@@ -102,37 +113,32 @@ const Game = () => {
         boardPositions
       );
       
-      // Update game status if there's an outcome
-      let status = game.status;
-      let winner = game.winner;
-      let winReason = game.winReason;
-      
-      if (outcome) {
-        status = 'completed';
-        winner = outcome.winner;
-        winReason = outcome.reason;
-      }
-      
       // Generate algebraic notation for the move
       const notation = generateMoveNotation(from, to, piece, moveInfo, newBoard, nextTurn);
       
-      // Update game in Firestore
-      await updateDoc(doc(db, 'games', gameId), {
-        board: newBoard,
-        currentTurn: nextTurn,
-        lastMove: move,
-        moves: [...game.moves, move],
-        notation: [...(game.notation || []), notation],
-        boardPositions: [...(game.boardPositions || []), newPosition],
-        status,
-        winner,
-        winReason,
-        updatedAt: new Date().toISOString()
+      // Add system message to the chat
+      await addSystemMessage('move', {
+        player: piece.color === 'white' ? game.white : game.black,
+        move: notation
       });
       
+      // Update Firebase with the move
+      await makeMove(gameId, from, to, piece, newBoard, moveInfo);
+      
+      // If there's a game outcome, update game status
+      if (outcome) {
+        // Add game result message to chat
+        await addSystemMessage('game-result', {
+          result: outcome.winner === 'draw' ? '和棋' : `${outcome.winner === 'white' ? game.white : game.black} 獲勝`,
+          reason: outcome.reason
+        });
+        
+        await completeGame(gameId, outcome.winner, outcome.reason);
+      }
+      
     } catch (err) {
-      console.error('Error updating game:', err);
-      setError('Failed to update game');
+      console.error('Error making move:', err);
+      setError('無法更新遊戲');
     }
   };
   
@@ -187,6 +193,20 @@ const Game = () => {
     return notation;
   };
   
+  // Add system message to chat
+  const addSystemMessage = async (type, data) => {
+    try {
+      await addDoc(collection(db, 'games', gameId, 'messages'), {
+        isSystem: true,
+        type,
+        ...data,
+        timestamp: serverTimestamp()
+      });
+    } catch (err) {
+      console.error('Error adding system message:', err);
+    }
+  };
+  
   // Allow players to resign
   const handleResign = async () => {
     if (!game || !currentUser) return;
@@ -198,17 +218,18 @@ const Game = () => {
     if (!isWhitePlayer && !isBlackPlayer) return;
     
     try {
-      const winner = isWhitePlayer ? 'black' : 'white';
+      const resigningColor = isWhitePlayer ? 'white' : 'black';
+      const resigningPlayer = isWhitePlayer ? game.white : game.black;
       
-      await updateDoc(doc(db, 'games', gameId), {
-        status: 'completed',
-        winner,
-        winReason: 'Resignation',
-        updatedAt: new Date().toISOString()
+      // Add system message for resignation
+      await addSystemMessage('resignation', {
+        player: resigningPlayer
       });
+      
+      await resignGame(gameId, resigningColor);
     } catch (err) {
       console.error('Error resigning game:', err);
-      setError('Failed to resign game');
+      setError('無法投降');
     }
   };
   
@@ -228,23 +249,26 @@ const Game = () => {
         (isWhitePlayer && game.drawOfferBy === 'black') ||
         (isBlackPlayer && game.drawOfferBy === 'white')
       ) {
-        await updateDoc(doc(db, 'games', gameId), {
-          status: 'completed',
-          winner: 'draw',
-          winReason: 'Agreement',
-          drawOfferBy: null,
-          updatedAt: new Date().toISOString()
+        // Add system message for draw agreement
+        await addSystemMessage('draw-accepted', {
+          player: isWhitePlayer ? game.white : game.black
         });
+        
+        await acceptDraw(gameId);
       } else {
         // Otherwise, offer a draw
-        await updateDoc(doc(db, 'games', gameId), {
-          drawOfferBy: isWhitePlayer ? 'white' : 'black',
-          updatedAt: new Date().toISOString()
+        const offeringColor = isWhitePlayer ? 'white' : 'black';
+        
+        // Add system message for draw offer
+        await addSystemMessage('draw-offer', {
+          player: isWhitePlayer ? game.white : game.black
         });
+        
+        await offerDraw(gameId, offeringColor);
       }
     } catch (err) {
       console.error('Error with draw offer:', err);
-      setError('Failed to handle draw offer');
+      setError('無法處理和棋要求');
     }
   };
   
@@ -253,14 +277,23 @@ const Game = () => {
     if (!game || !currentUser) return;
     
     try {
-      await updateDoc(doc(db, 'games', gameId), {
-        drawOfferBy: null,
-        updatedAt: new Date().toISOString()
+      // Add system message for declining draw
+      const decliningPlayer = game.whitePlayer.uid === currentUser.uid ? game.white : game.black;
+      
+      await addSystemMessage('draw-declined', {
+        player: decliningPlayer
       });
+      
+      await declineDraw(gameId);
     } catch (err) {
       console.error('Error declining draw:', err);
-      setError('Failed to decline draw offer');
+      setError('無法拒絕和棋要求');
     }
+  };
+  
+  // Toggle chat visibility on mobile
+  const toggleChat = () => {
+    setShowChat(!showChat);
   };
   
   // Go back to games list
@@ -287,7 +320,7 @@ const Game = () => {
   const isWhitePlayer = currentUser && game.whitePlayer.uid === currentUser.uid;
   const isBlackPlayer = currentUser && game.blackPlayer.uid === currentUser.uid;
   const isPlayer = isWhitePlayer || isBlackPlayer;
-  const isSpectator = !isPlayer;
+  const isSpectator = currentUser && !isPlayer;
   
   // Check if there's a draw offer and if it's to the current player
   const hasDrawOffer = game.drawOfferBy && (
@@ -317,6 +350,12 @@ const Game = () => {
             )}
           </div>
         )}
+        <button 
+          className={`toggle-chat-button ${showChat ? 'active' : ''}`} 
+          onClick={toggleChat}
+        >
+          聊天
+        </button>
       </div>
       
       <div className="game-container">
@@ -389,27 +428,37 @@ const Game = () => {
           </div>
         </div>
         
-        <div className="board-with-notation">
-          <ChessBoard 
-            board={game.board} 
-            currentTurn={game.currentTurn}
-            onMove={handleMove}
-            userId={currentUser?.uid}
-            game={game}
-            lastMove={game.lastMove}
-            moveHistory={moveHistory}
-          />
+        <div className="main-content">
+          <div className="left-column">
+            <SpectatorsList gameId={gameId} game={game} />
           
-          <div className="move-history">
-            <h3>着法記錄</h3>
-            <div className="notation-list">
-              {moveNotation.map((notation, index) => (
-                <div key={index} className="notation-item">
-                  {index % 2 === 0 && <span className="move-number">{Math.floor(index / 2) + 1}.</span>}
-                  <span className="move-notation">{notation}</span>
+            <div className="board-with-notation">
+              <ChessBoard 
+                board={game.board} 
+                currentTurn={game.currentTurn}
+                onMove={handleMove}
+                userId={currentUser?.uid}
+                game={game}
+                lastMove={game.lastMove}
+                moveHistory={moveHistory}
+              />
+              
+              <div className="move-history">
+                <h3>着法記錄</h3>
+                <div className="notation-list">
+                  {moveNotation.map((notation, index) => (
+                    <div key={index} className="notation-item">
+                      {index % 2 === 0 && <span className="move-number">{Math.floor(index / 2) + 1}.</span>}
+                      <span className="move-notation">{notation}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
+          </div>
+          
+          <div className={`right-column ${showChat ? 'show' : ''}`}>
+            <GameChat gameId={gameId} game={game} />
           </div>
         </div>
       </div>
