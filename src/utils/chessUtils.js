@@ -25,7 +25,7 @@ export const initialBoardSetup = () => {
       if (row === 0 || row === 7) {
         const color = row === 0 ? 'black' : 'white';
         if (col === 0 || col === 7) {
-          piece = { type: 'rook', color };
+          piece = { type: 'rook', color, hasMoved: false };
         } else if (col === 1 || col === 6) {
           piece = { type: 'knight', color };
         } else if (col === 2 || col === 5) {
@@ -33,7 +33,7 @@ export const initialBoardSetup = () => {
         } else if (col === 3) {
           piece = { type: 'queen', color };
         } else if (col === 4) {
-          piece = { type: 'king', color };
+          piece = { type: 'king', color, hasMoved: false };
         }
       }
       
@@ -72,35 +72,373 @@ export const setPieceAtPosition = (board, position, piece) => {
 };
 
 /**
- * Checks if the king of a specific color is on the board.
+ * Finds the king's position for a given color.
  * @param {Array} board - The board array
  * @param {string} color - The color to check ('white' or 'black')
- * @returns {boolean} True if the king exists, false otherwise
+ * @returns {string|null} The position of the king or null if not found
  */
-export const isKingAlive = (board, color) => {
-  return board.some(cell => 
+export const findKingPosition = (board, color) => {
+  const kingCell = board.find(cell => 
     cell.piece && cell.piece.type === 'king' && cell.piece.color === color
   );
+  return kingCell ? kingCell.position : null;
+};
+
+/**
+ * Checks if a position is under attack by the opponent.
+ * @param {Array} board - The board array
+ * @param {string} position - The position to check
+ * @param {string} byColor - The attacking color
+ * @returns {boolean} True if the position is under attack
+ */
+export const isPositionUnderAttack = (board, position, byColor) => {
+  // Get all pieces of the attacking color
+  const attackingPieces = board.filter(cell => 
+    cell.piece && cell.piece.color === byColor
+  );
+
+  // Check if any attacking piece can move to the target position
+  for (const cell of attackingPieces) {
+    const moves = calculatePieceMoves(board, cell.position, cell.piece);
+    if (moves.includes(position)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Calculates all possible moves for a piece.
+ * @param {Array} board - The board array
+ * @param {string} position - The position of the piece
+ * @param {Object} piece - The piece object
+ * @returns {Array} Array of possible positions
+ */
+export const calculatePieceMoves = (board, position, piece) => {
+  const [row, col] = positionToIndices(position);
+  const moves = [];
+
+  switch (piece.type) {
+    case 'pawn':
+      moves.push(...calculatePawnMoves(board, row, col, piece.color));
+      break;
+    case 'rook':
+      moves.push(...calculateRookMoves(board, row, col, piece.color));
+      break;
+    case 'knight':
+      moves.push(...calculateKnightMoves(board, row, col, piece.color));
+      break;
+    case 'bishop':
+      moves.push(...calculateBishopMoves(board, row, col, piece.color));
+      break;
+    case 'queen':
+      moves.push(...calculateQueenMoves(board, row, col, piece.color));
+      break;
+    case 'king':
+      moves.push(...calculateKingMoves(board, row, col, piece.color));
+      break;
+  }
+
+  return moves;
+};
+
+/**
+ * Calculates pawn moves including en passant.
+ * @param {Array} board - The board array
+ * @param {number} row - Current row
+ * @param {number} col - Current column
+ * @param {string} color - Piece color
+ * @returns {Array} Array of possible positions
+ */
+const calculatePawnMoves = (board, row, col, color) => {
+  const moves = [];
+  const direction = color === 'white' ? -1 : 1;
+  const startRow = color === 'white' ? 6 : 1;
+  
+  // Move forward one square
+  const forwardRow = row + direction;
+  if (isValidSquare(forwardRow, col)) {
+    const forwardPos = indicesToPosition(forwardRow, col);
+    if (!getPieceAtPosition(board, forwardPos)) {
+      moves.push(forwardPos);
+      
+      // Move forward two squares from starting position
+      if (row === startRow) {
+        const twoForwardRow = row + 2 * direction;
+        const twoForwardPos = indicesToPosition(twoForwardRow, col);
+        if (!getPieceAtPosition(board, twoForwardPos)) {
+          moves.push(twoForwardPos);
+        }
+      }
+    }
+  }
+  
+  // Diagonal captures
+  for (const offset of [-1, 1]) {
+    const captureRow = row + direction;
+    const captureCol = col + offset;
+    
+    if (isValidSquare(captureRow, captureCol)) {
+      const capturePos = indicesToPosition(captureRow, captureCol);
+      const targetPiece = getPieceAtPosition(board, capturePos);
+      
+      if (targetPiece && targetPiece.color !== color) {
+        moves.push(capturePos);
+      }
+    }
+  }
+  
+  // TODO: Add en passant logic
+  
+  return moves;
+};
+
+/**
+ * Calculates rook moves.
+ */
+const calculateRookMoves = (board, row, col, color) => {
+  const moves = [];
+  const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]]; // right, left, down, up
+  
+  for (const [dRow, dCol] of directions) {
+    let currentRow = row + dRow;
+    let currentCol = col + dCol;
+    
+    while (isValidSquare(currentRow, currentCol)) {
+      const pos = indicesToPosition(currentRow, currentCol);
+      const piece = getPieceAtPosition(board, pos);
+      
+      if (!piece) {
+        moves.push(pos);
+      } else {
+        if (piece.color !== color) {
+          moves.push(pos);
+        }
+        break;
+      }
+      
+      currentRow += dRow;
+      currentCol += dCol;
+    }
+  }
+  
+  return moves;
+};
+
+/**
+ * Calculates knight moves.
+ */
+const calculateKnightMoves = (board, row, col, color) => {
+  const moves = [];
+  const offsets = [
+    [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+    [1, -2], [1, 2], [2, -1], [2, 1]
+  ];
+  
+  for (const [dRow, dCol] of offsets) {
+    const newRow = row + dRow;
+    const newCol = col + dCol;
+    
+    if (isValidSquare(newRow, newCol)) {
+      const pos = indicesToPosition(newRow, newCol);
+      const piece = getPieceAtPosition(board, pos);
+      
+      if (!piece || piece.color !== color) {
+        moves.push(pos);
+      }
+    }
+  }
+  
+  return moves;
+};
+
+/**
+ * Calculates bishop moves.
+ */
+const calculateBishopMoves = (board, row, col, color) => {
+  const moves = [];
+  const directions = [[1, 1], [1, -1], [-1, 1], [-1, -1]]; // diagonals
+  
+  for (const [dRow, dCol] of directions) {
+    let currentRow = row + dRow;
+    let currentCol = col + dCol;
+    
+    while (isValidSquare(currentRow, currentCol)) {
+      const pos = indicesToPosition(currentRow, currentCol);
+      const piece = getPieceAtPosition(board, pos);
+      
+      if (!piece) {
+        moves.push(pos);
+      } else {
+        if (piece.color !== color) {
+          moves.push(pos);
+        }
+        break;
+      }
+      
+      currentRow += dRow;
+      currentCol += dCol;
+    }
+  }
+  
+  return moves;
+};
+
+/**
+ * Calculates queen moves (combination of rook and bishop).
+ */
+const calculateQueenMoves = (board, row, col, color) => {
+  return [
+    ...calculateRookMoves(board, row, col, color),
+    ...calculateBishopMoves(board, row, col, color)
+  ];
+};
+
+/**
+ * Calculates king moves including castling.
+ */
+const calculateKingMoves = (board, row, col, color) => {
+  const moves = [];
+  const offsets = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1], [0, 1],
+    [1, -1], [1, 0], [1, 1]
+  ];
+  
+  for (const [dRow, dCol] of offsets) {
+    const newRow = row + dRow;
+    const newCol = col + dCol;
+    
+    if (isValidSquare(newRow, newCol)) {
+      const pos = indicesToPosition(newRow, newCol);
+      const piece = getPieceAtPosition(board, pos);
+      
+      if (!piece || piece.color !== color) {
+        moves.push(pos);
+      }
+    }
+  }
+  
+  // TODO: Add castling logic
+  
+  return moves;
+};
+
+/**
+ * Checks if a move would put the player's own king in check.
+ * @param {Array} board - The board array
+ * @param {string} from - Starting position
+ * @param {string} to - Ending position
+ * @param {string} color - Color of the moving piece
+ * @returns {boolean} True if the move would result in check
+ */
+export const wouldMoveResultInCheck = (board, from, to, color) => {
+  // Create a temporary board with the move applied
+  const tempBoard = [...board];
+  const piece = getPieceAtPosition(tempBoard, from);
+  
+  if (!piece) return true; // Should not happen
+  
+  // Apply the move
+  const newBoard = setPieceAtPosition(tempBoard, from, null);
+  const finalBoard = setPieceAtPosition(newBoard, to, piece);
+  
+  // Find king position after the move
+  const kingPosition = findKingPosition(finalBoard, color);
+  
+  if (!kingPosition) return true; // King not found, invalid state
+  
+  // Check if king would be under attack
+  const opponentColor = color === 'white' ? 'black' : 'white';
+  return isPositionUnderAttack(finalBoard, kingPosition, opponentColor);
+};
+
+/**
+ * Checks if a player is in check.
+ * @param {Array} board - The board array
+ * @param {string} color - The color to check
+ * @returns {boolean} True if the player is in check
+ */
+export const isInCheck = (board, color) => {
+  const kingPosition = findKingPosition(board, color);
+  if (!kingPosition) return false;
+  
+  const opponentColor = color === 'white' ? 'black' : 'white';
+  return isPositionUnderAttack(board, kingPosition, opponentColor);
+};
+
+/**
+ * Checks if a player has any legal moves.
+ * @param {Array} board - The board array
+ * @param {string} color - The color to check
+ * @returns {boolean} True if the player has legal moves
+ */
+export const hasLegalMoves = (board, color) => {
+  const pieces = board.filter(cell => 
+    cell.piece && cell.piece.color === color
+  );
+  
+  for (const cell of pieces) {
+    const moves = calculatePieceMoves(board, cell.position, cell.piece);
+    
+    // Check each move to see if it's legal (doesn't put own king in check)
+    for (const move of moves) {
+      if (!wouldMoveResultInCheck(board, cell.position, move, color)) {
+        return true; // Found at least one legal move
+      }
+    }
+  }
+  
+  return false; // No legal moves found
 };
 
 /**
  * Determines the game outcome based on the board state.
  * @param {Array} board - The board array
- * @returns {Object|null} Game outcome {winner: 'white'|'black', reason: string} or null if game continues
+ * @param {string} currentTurn - The current player's turn
+ * @returns {Object|null} Game outcome {winner, reason} or null if game continues
  */
-export const checkGameOutcome = (board) => {
-  const whiteKingAlive = isKingAlive(board, 'white');
-  const blackKingAlive = isKingAlive(board, 'black');
+export const checkGameOutcome = (board, currentTurn) => {
+  // Check if current player is in check
+  const inCheck = isInCheck(board, currentTurn);
   
-  if (!whiteKingAlive) {
-    return { winner: 'black', reason: 'White king captured' };
+  // Check if current player has any legal moves
+  const hasLegalMove = hasLegalMoves(board, currentTurn);
+  
+  if (!hasLegalMove) {
+    if (inCheck) {
+      // Checkmate
+      const winner = currentTurn === 'white' ? 'black' : 'white';
+      return { winner, reason: 'Checkmate' };
+    } else {
+      // Stalemate
+      return { winner: 'draw', reason: 'Stalemate' };
+    }
   }
   
-  if (!blackKingAlive) {
-    return { winner: 'white', reason: 'Black king captured' };
+  // Check for insufficient material
+  const pieces = board.filter(cell => cell.piece);
+  
+  // Count pieces
+  const whitePieces = pieces.filter(cell => cell.piece.color === 'white');
+  const blackPieces = pieces.filter(cell => cell.piece.color === 'black');
+  
+  // King vs King
+  if (whitePieces.length === 1 && blackPieces.length === 1) {
+    return { winner: 'draw', reason: 'Insufficient material' };
   }
+  
+  // TODO: Add more draw conditions (threefold repetition, fifty-move rule)
   
   return null; // Game continues
+};
+
+/**
+ * Helper function to check if a square is on the board.
+ */
+const isValidSquare = (row, col) => {
+  return row >= 0 && row < 8 && col >= 0 && col < 8;
 };
 
 /**
