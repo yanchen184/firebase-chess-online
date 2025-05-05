@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   getPieceSymbol, 
-  positionToIndices, 
-  indicesToPosition, 
   isPlayerTurn, 
   getPlayerColor,
   getPieceAtPosition,
-  setPieceAtPosition
-} from '../utils/chessUtils';
+  isValidSquare,
+  positionToIndices,
+  indicesToPosition,
+  calculatePieceMoves,
+  applyMove,
+  isInCheck,
+  wouldMoveResultInCheck,
+  isPromotionMove
+} from '../utils/chess';
 
 /**
  * ChessBoard component displays the chess board and handles piece movement.
@@ -17,11 +22,22 @@ import {
  * @param {Function} props.onMove - Callback function when a move is made
  * @param {string} props.userId - Current user ID
  * @param {Object} props.game - Current game object
+ * @param {Object} props.lastMove - The last move that was made (for en passant)
+ * @param {Array} props.moveHistory - History of all moves made
  */
-const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
+const ChessBoard = ({ 
+  board, 
+  currentTurn, 
+  onMove, 
+  userId, 
+  game, 
+  lastMove = null,
+  moveHistory = [] 
+}) => {
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
   const [flipped, setFlipped] = useState(false);
+  const [promotionPending, setPromotionPending] = useState(null);
   
   const playerColor = getPlayerColor(userId, game);
   const canPlay = isPlayerTurn(userId, game) && game.status === 'active';
@@ -60,6 +76,11 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       return;
     }
     
+    // If there's a promotion pending, don't allow clicking on squares
+    if (promotionPending) {
+      return;
+    }
+    
     const position = indicesToPosition(row, col);
     const piece = getPieceAtPosition(board, position);
     
@@ -72,9 +93,16 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       // If the clicked square is one of the valid moves, make the move
       if (validMoves.includes(position)) {
         console.log(`Making move from ${selectedSquare} to ${position}`);
-        onMove(selectedSquare, position, selectedPiece);
-        setSelectedSquare(null);
-        setValidMoves([]);
+        
+        // Check if this is a pawn promotion move
+        if (selectedPiece.type === 'pawn' && isPromotionMove(selectedSquare, position, selectedPiece)) {
+          // Set promotion pending to show the promotion selection UI
+          setPromotionPending({ from: selectedSquare, to: position });
+          return;
+        }
+        
+        // Otherwise, make the regular move
+        makeMove(selectedSquare, position);
         return;
       }
       
@@ -82,7 +110,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       if (piece && piece.color === playerColor) {
         console.log(`Selecting new piece at ${position}`);
         setSelectedSquare(position);
-        calculateValidMoves(row, col, piece);
+        calculateValidMoves(position, piece);
         return;
       }
       
@@ -97,186 +125,81 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
     if (piece && piece.color === playerColor) {
       console.log(`Selecting piece at ${position}`);
       setSelectedSquare(position);
-      calculateValidMoves(row, col, piece);
+      calculateValidMoves(position, piece);
     }
   };
   
-  // Simple implementation of valid move calculation
-  // In a real app, this would need to be more sophisticated
-  const calculateValidMoves = (row, col, piece) => {
-    console.log(`Calculating valid moves for ${piece.type} at ${row}, ${col}`);
-    const moves = [];
+  // Calculate valid moves for a piece
+  const calculateValidMoves = (position, piece) => {
+    console.log(`Calculating valid moves for ${piece.type} at ${position}`);
     
-    switch (piece.type) {
-      case 'pawn':
-        calculatePawnMoves(row, col, piece.color, moves);
-        break;
-      case 'rook':
-        calculateRookMoves(row, col, piece.color, moves);
-        break;
-      case 'knight':
-        calculateKnightMoves(row, col, piece.color, moves);
-        break;
-      case 'bishop':
-        calculateBishopMoves(row, col, piece.color, moves);
-        break;
-      case 'queen':
-        calculateRookMoves(row, col, piece.color, moves);
-        calculateBishopMoves(row, col, piece.color, moves);
-        break;
-      case 'king':
-        calculateKingMoves(row, col, piece.color, moves);
-        break;
-      default:
-        break;
-    }
+    // Get all potential moves for the piece
+    const potentialMoves = calculatePieceMoves(board, position, piece, lastMove);
     
-    console.log(`Valid moves:`, moves);
-    setValidMoves(moves);
+    // Filter out moves that would result in check
+    const legalMoves = potentialMoves.filter(move => 
+      !wouldMoveResultInCheck(board, position, move, piece.color)
+    );
+    
+    console.log(`Valid moves:`, legalMoves);
+    setValidMoves(legalMoves);
   };
   
-  // Calculate valid moves for each piece type
-  const calculatePawnMoves = (row, col, color, moves) => {
-    const direction = color === 'white' ? -1 : 1;
-    const startRow = color === 'white' ? 6 : 1;
+  // Make a move
+  const makeMove = (from, to, promotionPiece = null) => {
+    const piece = getPieceAtPosition(board, from);
     
-    // Move forward one square
-    const forwardPos = indicesToPosition(row + direction, col);
-    if (isValidSquare(row + direction, col) && !getPieceAtPosition(board, forwardPos)) {
-      moves.push(forwardPos);
-      
-      // Move forward two squares from starting position
-      const twoForwardPos = indicesToPosition(row + 2 * direction, col);
-      if (row === startRow && isValidSquare(row + 2 * direction, col) && 
-          !getPieceAtPosition(board, twoForwardPos)) {
-        moves.push(twoForwardPos);
-      }
-    }
+    if (!piece) return;
     
-    // Capture diagonally
-    for (const offset of [-1, 1]) {
-      const newRow = row + direction;
-      const newCol = col + offset;
-      
-      if (isValidSquare(newRow, newCol)) {
-        const diagPos = indicesToPosition(newRow, newCol);
-        const targetPiece = getPieceAtPosition(board, diagPos);
-        
-        if (targetPiece && targetPiece.color !== color) {
-          moves.push(diagPos);
-        }
-      }
-    }
+    // Apply the move and get new board state
+    const { board: newBoard, moveInfo } = applyMove(board, from, to, lastMove, promotionPiece);
+    
+    // Update check status
+    const opponentColor = piece.color === 'white' ? 'black' : 'white';
+    moveInfo.isCheck = isInCheck(newBoard, opponentColor);
+    
+    // Pass the move to the parent component
+    onMove(from, to, piece, newBoard, moveInfo);
+    
+    // Reset selection
+    setSelectedSquare(null);
+    setValidMoves([]);
+    setPromotionPending(null);
   };
   
-  const calculateRookMoves = (row, col, color, moves) => {
-    // Directions: up, right, down, left
-    const directions = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+  // Handle promotion selection
+  const handlePromotion = (pieceType) => {
+    if (!promotionPending) return;
     
-    for (const [dx, dy] of directions) {
-      let newRow = row + dx;
-      let newCol = col + dy;
-      
-      while (isValidSquare(newRow, newCol)) {
-        const position = indicesToPosition(newRow, newCol);
-        const targetPiece = getPieceAtPosition(board, position);
-        
-        if (!targetPiece) {
-          // Empty square - valid move
-          moves.push(position);
-        } else if (targetPiece.color !== color) {
-          // Opponent's piece - valid move (capture)
-          moves.push(position);
-          break;
-        } else {
-          // Own piece - can't move past it
-          break;
-        }
-        
-        newRow += dx;
-        newCol += dy;
-      }
-    }
+    makeMove(promotionPending.from, promotionPending.to, pieceType);
   };
   
-  const calculateKnightMoves = (row, col, color, moves) => {
-    // All possible knight moves
-    const knightMoves = [
-      [-2, -1], [-2, 1], [2, -1], [2, 1],
-      [-1, -2], [-1, 2], [1, -2], [1, 2]
-    ];
+  // Render promotion selection UI
+  const renderPromotionOptions = () => {
+    if (!promotionPending) return null;
     
-    for (const [dx, dy] of knightMoves) {
-      const newRow = row + dx;
-      const newCol = col + dy;
-      
-      if (isValidSquare(newRow, newCol)) {
-        const position = indicesToPosition(newRow, newCol);
-        const targetPiece = getPieceAtPosition(board, position);
-        
-        if (!targetPiece || targetPiece.color !== color) {
-          moves.push(position);
-        }
-      }
-    }
-  };
-  
-  const calculateBishopMoves = (row, col, color, moves) => {
-    // Directions: up-left, up-right, down-right, down-left
-    const directions = [[-1, -1], [-1, 1], [1, 1], [1, -1]];
+    const promotionPiece = getPieceAtPosition(board, promotionPending.from);
+    const color = promotionPiece.color;
+    const pieceTypes = ['queen', 'rook', 'bishop', 'knight'];
     
-    for (const [dx, dy] of directions) {
-      let newRow = row + dx;
-      let newCol = col + dy;
-      
-      while (isValidSquare(newRow, newCol)) {
-        const position = indicesToPosition(newRow, newCol);
-        const targetPiece = getPieceAtPosition(board, position);
-        
-        if (!targetPiece) {
-          // Empty square - valid move
-          moves.push(position);
-        } else if (targetPiece.color !== color) {
-          // Opponent's piece - valid move (capture)
-          moves.push(position);
-          break;
-        } else {
-          // Own piece - can't move past it
-          break;
-        }
-        
-        newRow += dx;
-        newCol += dy;
-      }
-    }
-  };
-  
-  const calculateKingMoves = (row, col, color, moves) => {
-    // All possible king moves
-    const kingMoves = [
-      [-1, -1], [-1, 0], [-1, 1],
-      [0, -1],           [0, 1],
-      [1, -1],  [1, 0],  [1, 1]
-    ];
-    
-    for (const [dx, dy] of kingMoves) {
-      const newRow = row + dx;
-      const newCol = col + dy;
-      
-      if (isValidSquare(newRow, newCol)) {
-        const position = indicesToPosition(newRow, newCol);
-        const targetPiece = getPieceAtPosition(board, position);
-        
-        if (!targetPiece || targetPiece.color !== color) {
-          moves.push(position);
-        }
-      }
-    }
-  };
-  
-  // Helper function to check if a square is on the board
-  const isValidSquare = (row, col) => {
-    return row >= 0 && row < 8 && col >= 0 && col < 8;
+    return (
+      <div className="promotion-overlay">
+        <div className="promotion-modal">
+          <div className="promotion-title">選擇升變棋子</div>
+          <div className="promotion-options">
+            {pieceTypes.map(type => (
+              <div 
+                key={type} 
+                className="promotion-option"
+                onClick={() => handlePromotion(type)}
+              >
+                {getPieceSymbol(type, color)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
   
   // Render the board
@@ -297,6 +220,10 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
         const isValidMove = validMoves.includes(position);
         const isValidCapture = isValidMove && piece;
         
+        // Check if this square is the last move's from or to position
+        const isLastMoveFrom = lastMove && lastMove.from === position;
+        const isLastMoveTo = lastMove && lastMove.to === position;
+        
         // Determine square color
         const isLightSquare = (row + col) % 2 === 0;
         const squareClass = isLightSquare ? 'light' : 'dark';
@@ -309,6 +236,8 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
               ${isSelected ? 'selected' : ''}
               ${isValidMove && !isValidCapture ? 'valid-move' : ''}
               ${isValidCapture ? 'valid-capture' : ''}
+              ${isLastMoveFrom ? 'last-move-from' : ''}
+              ${isLastMoveTo ? 'last-move-to' : ''}
               ${game.status === 'completed' ? 'cursor-not-allowed' : ''}
             `}
             onClick={() => handleSquareClick(actualRow, actualCol)}
@@ -332,9 +261,46 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
     return rows;
   };
   
+  // Render rank and file labels
+  const renderLabels = () => {
+    const files = [];
+    const ranks = [];
+    
+    // File labels (a-h)
+    for (let i = 0; i < 8; i++) {
+      const file = String.fromCharCode(97 + (flipped ? 7 - i : i));
+      files.push(
+        <div key={file} className="file-label">
+          {file}
+        </div>
+      );
+    }
+    
+    // Rank labels (1-8)
+    for (let i = 0; i < 8; i++) {
+      const rank = (flipped ? i + 1 : 8 - i).toString();
+      ranks.push(
+        <div key={rank} className="rank-label">
+          {rank}
+        </div>
+      );
+    }
+    
+    return (
+      <>
+        <div className="file-labels">{files}</div>
+        <div className="rank-labels">{ranks}</div>
+      </>
+    );
+  };
+  
   return (
-    <div className="chess-board">
-      {renderBoard()}
+    <div className="chess-board-container">
+      <div className="chess-board">
+        {renderBoard()}
+        {renderLabels()}
+      </div>
+      {promotionPending && renderPromotionOptions()}
     </div>
   );
 };
