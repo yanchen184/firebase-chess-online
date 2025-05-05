@@ -18,7 +18,10 @@ const Game = () => {
     error, 
     makeMove, 
     joinGame, 
-    listenToGame
+    listenToGame,
+    resignGame,
+    offerDraw,
+    respondToDraw
   } = useGame();
   
   const [gameError, setGameError] = useState('');
@@ -57,6 +60,47 @@ const Game = () => {
     }
   };
   
+  // Handle resign
+  const handleResign = async () => {
+    if (window.confirm('Are you sure you want to resign? You will lose the game.')) {
+      try {
+        setGameLoading(true);
+        setGameError('');
+        await resignGame(gameId);
+      } catch (error) {
+        setGameError(error.message);
+      } finally {
+        setGameLoading(false);
+      }
+    }
+  };
+  
+  // Handle offer draw
+  const handleOfferDraw = async () => {
+    try {
+      setGameLoading(true);
+      setGameError('');
+      await offerDraw(gameId);
+    } catch (error) {
+      setGameError(error.message);
+    } finally {
+      setGameLoading(false);
+    }
+  };
+  
+  // Handle draw response
+  const handleDrawResponse = async (accept) => {
+    try {
+      setGameLoading(true);
+      setGameError('');
+      await respondToDraw(gameId, accept);
+    } catch (error) {
+      setGameError(error.message);
+    } finally {
+      setGameLoading(false);
+    }
+  };
+  
   // Handle going back to dashboard
   const handleBackToDashboard = () => {
     navigate('/');
@@ -88,6 +132,12 @@ const Game = () => {
   const isPending = currentGame.status === 'pending';
   const isPlayer = playerColor !== null;
   const isCompleted = currentGame.status === 'completed';
+  const isActive = currentGame.status === 'active';
+  
+  // Check if there's a pending draw offer
+  const hasPendingDrawOffer = currentGame.drawOffer && 
+    currentGame.drawOffer.status === 'pending' &&
+    currentGame.drawOffer.to === playerColor;
   
   // Pending invitation that belongs to the current user
   const isPendingInvitation = isPending && currentGame.blackPlayer.email === currentUser.email;
@@ -140,6 +190,28 @@ const Game = () => {
           </div>
         )}
         
+        {hasPendingDrawOffer && (
+          <div className="mt-4 p-4 bg-blue-100 border border-blue-400 rounded">
+            <p className="text-blue-800 mb-2">Your opponent has offered a draw.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleDrawResponse(true)}
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm"
+                disabled={gameLoading}
+              >
+                Accept Draw
+              </button>
+              <button
+                onClick={() => handleDrawResponse(false)}
+                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm"
+                disabled={gameLoading}
+              >
+                Decline Draw
+              </button>
+            </div>
+          </div>
+        )}
+        
         {isPendingInvitation && (
           <div className="mt-4">
             <p className="mb-2">You've been invited to play this game!</p>
@@ -149,6 +221,27 @@ const Game = () => {
               disabled={gameLoading}
             >
               {gameLoading ? 'Joining game...' : 'Join Game'}
+            </button>
+          </div>
+        )}
+        
+        {isActive && isPlayer && (
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={handleResign}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+              disabled={gameLoading}
+            >
+              Resign
+            </button>
+            <button
+              onClick={handleOfferDraw}
+              className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
+              disabled={gameLoading || (currentGame.drawOffer && currentGame.drawOffer.status === 'pending')}
+            >
+              {currentGame.drawOffer && currentGame.drawOffer.status === 'pending' 
+                ? 'Draw Offered' 
+                : 'Offer Draw'}
             </button>
           </div>
         )}
