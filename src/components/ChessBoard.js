@@ -26,6 +26,17 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
   const playerColor = getPlayerColor(userId, game);
   const canPlay = isPlayerTurn(userId, game);
   
+  // Debug information
+  useEffect(() => {
+    console.log("Current game state:", {
+      canPlay,
+      playerColor,
+      currentTurn,
+      selectedSquare,
+      validMoves
+    });
+  }, [canPlay, playerColor, currentTurn, selectedSquare, validMoves]);
+  
   // Determine if board should be flipped based on player color
   useEffect(() => {
     setFlipped(playerColor === 'black');
@@ -39,11 +50,19 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
   
   // When a square is clicked
   const handleSquareClick = (row, col) => {
+    console.log(`Square clicked: ${row}, ${col}`);
+    console.log(`Can play: ${canPlay}`);
+    
     // Don't allow moves if it's not the player's turn
-    if (!canPlay) return;
+    if (!canPlay) {
+      console.log("Not player's turn");
+      return;
+    }
     
     const position = indicesToPosition(row, col);
     const piece = getPieceAtPosition(board, position);
+    
+    console.log(`Position: ${position}, Piece:`, piece);
     
     // If a piece is already selected
     if (selectedSquare) {
@@ -51,6 +70,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       
       // If the clicked square is one of the valid moves, make the move
       if (validMoves.includes(position)) {
+        console.log(`Making move from ${selectedSquare} to ${position}`);
         onMove(selectedSquare, position, selectedPiece);
         setSelectedSquare(null);
         setValidMoves([]);
@@ -59,12 +79,14 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       
       // If clicking on another own piece, select that piece instead
       if (piece && piece.color === playerColor) {
+        console.log(`Selecting new piece at ${position}`);
         setSelectedSquare(position);
         calculateValidMoves(row, col, piece);
         return;
       }
       
       // Otherwise, deselect the piece
+      console.log("Deselecting piece");
       setSelectedSquare(null);
       setValidMoves([]);
       return;
@@ -72,6 +94,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
     
     // If no piece is selected and the clicked square has a piece of the player's color
     if (piece && piece.color === playerColor) {
+      console.log(`Selecting piece at ${position}`);
       setSelectedSquare(position);
       calculateValidMoves(row, col, piece);
     }
@@ -80,8 +103,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
   // Simple implementation of valid move calculation
   // In a real app, this would need to be more sophisticated
   const calculateValidMoves = (row, col, piece) => {
-    // This is a simplified version that doesn't check for check, checkmate, etc.
-    // A real chess implementation would need much more complex move logic
+    console.log(`Calculating valid moves for ${piece.type} at ${row}, ${col}`);
     const moves = [];
     
     switch (piece.type) {
@@ -108,6 +130,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
         break;
     }
     
+    console.log(`Valid moves:`, moves);
     setValidMoves(moves);
   };
   
@@ -283,7 +306,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
             className={`
               chess-square ${squareClass}
               ${isSelected ? 'selected' : ''}
-              ${isValidMove ? 'valid-move' : ''}
+              ${isValidMove && !isValidCapture ? 'valid-move' : ''}
               ${isValidCapture ? 'valid-capture' : ''}
             `}
             onClick={() => handleSquareClick(actualRow, actualCol)}
