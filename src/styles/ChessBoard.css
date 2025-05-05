@@ -1,0 +1,221 @@
+/* ChessBoard.css */
+
+.chess-board-container {
+  position: relative;
+  margin: 20px auto;
+  max-width: 600px;
+}
+
+.chess-board {
+  display: flex;
+  flex-direction: column;
+  border: 4px solid #8B4513;
+  width: 100%;
+  position: relative;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.chess-square {
+  width: 12.5%;
+  position: relative;
+  /* Make squares responsive and always maintain aspect ratio */
+  padding-bottom: 12.5%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Chess square inner div for positioning content */
+.chess-square::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.chess-square.light {
+  background-color: #F0D9B5;
+}
+
+.chess-square.dark {
+  background-color: #B58863;
+}
+
+/* Highlighting */
+.chess-square.selected::before {
+  background-color: rgba(255, 255, 0, 0.5);
+}
+
+.chess-square.valid-move::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background-color: rgba(0, 255, 0, 0.4);
+}
+
+.chess-square.valid-capture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 3px solid rgba(255, 0, 0, 0.5);
+  border-radius: 3px;
+}
+
+.chess-square.last-move-from::before {
+  background-color: rgba(173, 216, 230, 0.6);
+}
+
+.chess-square.last-move-to::before {
+  background-color: rgba(173, 216, 230, 0.9);
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+/* Chess pieces */
+.chess-piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem;
+  z-index: 10;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.piece-white {
+  color: #FFFFFF;
+  text-shadow: 0 0 1px #000, 0 0 1px #000, 0 0 1px #000;
+}
+
+.piece-black {
+  color: #000000;
+}
+
+/* Rank and file labels */
+.file-labels, .rank-labels {
+  position: absolute;
+  display: flex;
+}
+
+.file-labels {
+  bottom: -25px;
+  left: 0;
+  right: 0;
+  justify-content: space-around;
+}
+
+.rank-labels {
+  top: 0;
+  bottom: 0;
+  left: -25px;
+  flex-direction: column;
+  justify-content: space-around;
+}
+
+.file-label, .rank-label {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* Promotion selection */
+.promotion-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.promotion-modal {
+  background-color: #f5f5f5;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.promotion-title {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.promotion-options {
+  display: flex;
+  justify-content: space-around;
+}
+
+.promotion-option {
+  font-size: 3rem;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 5px;
+  margin: 0 5px;
+}
+
+.promotion-option:hover {
+  background-color: #e0e0e0;
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  .chess-piece {
+    font-size: 2rem;
+  }
+  
+  .promotion-option {
+    font-size: 2.5rem;
+    width: 50px;
+    height: 50px;
+  }
+}
+
+@media (max-width: 400px) {
+  .chess-piece {
+    font-size: 1.5rem;
+  }
+  
+  .file-label, .rank-label {
+    font-size: 0.8rem;
+  }
+  
+  .promotion-option {
+    font-size: 2rem;
+    width: 40px;
+    height: 40px;
+  }
+}
