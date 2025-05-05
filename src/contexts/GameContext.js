@@ -19,7 +19,9 @@ import {
   initialBoardSetup, 
   getPieceAtPosition, 
   setPieceAtPosition,
-  checkGameOutcome
+  checkGameOutcome,
+  wouldMoveResultInCheck,
+  isInCheck
 } from '../utils/chessUtils';
 
 // Create game context
@@ -60,6 +62,8 @@ export const GameProvider = ({ children }) => {
         currentTurn: 'white',
         board: initialBoard,
         moves: [],
+        gameStates: [],  // Track game states for threefold repetition
+        halfMoveClock: 0,  // Track moves for fifty-move rule
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -148,6 +152,11 @@ export const GameProvider = ({ children }) => {
         throw new Error('Not your turn');
       }
 
+      // Check if move would leave king in check
+      if (wouldMoveResultInCheck(gameData.board, from, to, gameData.currentTurn)) {
+        throw new Error('Move would leave your king in check');
+      }
+
       // Get the captured piece (if any)
       const capturedPiece = getPieceAtPosition(gameData.board, to);
 
@@ -164,26 +173,70 @@ export const GameProvider = ({ children }) => {
       // Update the board using the new flat structure
       let newBoard = [...gameData.board];
       
-      // Remove piece from 'from' position and add to 'to' position
+      // Handle special moves (castling, en passant, pawn promotion)
+      // TODO: Implement special moves logic
+      
+      // Regular move
       newBoard = setPieceAtPosition(newBoard, from, null);
       newBoard = setPieceAtPosition(newBoard, to, piece);
 
+      // Update piece's hasMoved property for rooks and kings (for castling)
+      if ((piece.type === 'king' || piece.type === 'rook') && !piece.hasMoved) {
+        const updatedPiece = { ...piece, hasMoved: true };
+        newBoard = setPieceAtPosition(newBoard, to, updatedPiece);
+      }
+
+      // Update half-move clock for fifty-move rule
+      let newHalfMoveClock = gameData.halfMoveClock || 0;
+      if (piece.type === 'pawn' || capturedPiece) {
+        newHalfMoveClock = 0;  // Reset on pawn move or capture
+      } else {
+        newHalfMoveClock++;  // Increment otherwise
+      }
+
+      // Record current game state for threefold repetition
+      const gameState = JSON.stringify(newBoard);
+      const gameStates = [...(gameData.gameStates || []), gameState];
+
       // Check for game outcome
-      const gameOutcome = checkGameOutcome(newBoard);
+      const nextTurn = gameData.currentTurn === 'white' ? 'black' : 'white';
+      const gameOutcome = checkGameOutcome(newBoard, nextTurn);
       
       // Prepare update data
       const updateData = {
         board: newBoard,
         moves: arrayUnion(move),
-        currentTurn: gameData.currentTurn === 'white' ? 'black' : 'white',
+        currentTurn: nextTurn,
+        halfMoveClock: newHalfMoveClock,
+        gameStates: gameStates,
         updatedAt: serverTimestamp()
       };
+
+      // Add check status
+      if (isInCheck(newBoard, nextTurn)) {
+        updateData.inCheck = nextTurn;
+      } else {
+        updateData.inCheck = null;
+      }
 
       // If game is over, update status and add winner information
       if (gameOutcome) {
         updateData.status = 'completed';
         updateData.winner = gameOutcome.winner;
         updateData.winReason = gameOutcome.reason;
+      }
+
+      // Check for draw conditions
+      if (newHalfMoveClock >= 100) {
+        // Fifty-move rule (100 half-moves = 50 full moves)
+        updateData.status = 'completed';
+        updateData.winner = 'draw';
+        updateData.winReason = 'Fifty-move rule';
+      } else if (gameStates.filter(state => state === gameState).length >= 3) {
+        // Threefold repetition
+        updateData.status = 'completed';
+        updateData.winner = 'draw';
+        updateData.winReason = 'Threefold repetition';
       }
 
       // Update game
