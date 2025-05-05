@@ -11,7 +11,8 @@ import {
   onSnapshot,
   updateDoc,
   arrayUnion,
-  serverTimestamp
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { 
@@ -141,13 +142,13 @@ export const GameProvider = ({ children }) => {
         throw new Error('Not your turn');
       }
 
-      // Create move record
+      // Create move record with client timestamp
       const move = {
         player: currentUser.uid,
         from,
         to,
         piece,
-        timestamp: serverTimestamp()
+        timestamp: Timestamp.now() // Use Timestamp.now() instead of serverTimestamp()
       };
 
       // Update the board using the new flat structure
