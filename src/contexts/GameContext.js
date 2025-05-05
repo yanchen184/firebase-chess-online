@@ -197,6 +197,167 @@ export const GameProvider = ({ children }) => {
     }
   };
 
+  // Resign from game
+  const resignGame = async (gameId) => {
+    try {
+      setLoading(true);
+      setError('');
+
+      if (!currentUser) {
+        throw new Error('You must be logged in to resign');
+      }
+
+      const gameRef = doc(db, 'games', gameId);
+      const gameSnap = await getDoc(gameRef);
+
+      if (!gameSnap.exists()) {
+        throw new Error('Game not found');
+      }
+
+      const gameData = gameSnap.data();
+
+      // Check if user is a player in this game
+      const isWhitePlayer = gameData.whitePlayer.uid === currentUser.uid;
+      const isBlackPlayer = gameData.blackPlayer.uid === currentUser.uid;
+
+      if (!isWhitePlayer && !isBlackPlayer) {
+        throw new Error('You are not a player in this game');
+      }
+
+      // Determine winner (opponent of the resigning player)
+      const winner = isWhitePlayer ? 'black' : 'white';
+
+      // Update game
+      await updateDoc(gameRef, {
+        status: 'completed',
+        winner: winner,
+        winReason: `${isWhitePlayer ? 'White' : 'Black'} resigned`,
+        updatedAt: serverTimestamp()
+      });
+
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Offer draw
+  const offerDraw = async (gameId) => {
+    try {
+      setLoading(true);
+      setError('');
+
+      if (!currentUser) {
+        throw new Error('You must be logged in to offer a draw');
+      }
+
+      const gameRef = doc(db, 'games', gameId);
+      const gameSnap = await getDoc(gameRef);
+
+      if (!gameSnap.exists()) {
+        throw new Error('Game not found');
+      }
+
+      const gameData = gameSnap.data();
+
+      // Check if user is a player in this game
+      const isWhitePlayer = gameData.whitePlayer.uid === currentUser.uid;
+      const isBlackPlayer = gameData.blackPlayer.uid === currentUser.uid;
+
+      if (!isWhitePlayer && !isBlackPlayer) {
+        throw new Error('You are not a player in this game');
+      }
+
+      const playerColor = isWhitePlayer ? 'white' : 'black';
+      const opponentColor = isWhitePlayer ? 'black' : 'white';
+
+      // Update game with draw offer
+      await updateDoc(gameRef, {
+        drawOffer: {
+          from: playerColor,
+          to: opponentColor,
+          status: 'pending',
+          timestamp: serverTimestamp()
+        },
+        updatedAt: serverTimestamp()
+      });
+
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Respond to draw offer
+  const respondToDraw = async (gameId, accept) => {
+    try {
+      setLoading(true);
+      setError('');
+
+      if (!currentUser) {
+        throw new Error('You must be logged in to respond to a draw offer');
+      }
+
+      const gameRef = doc(db, 'games', gameId);
+      const gameSnap = await getDoc(gameRef);
+
+      if (!gameSnap.exists()) {
+        throw new Error('Game not found');
+      }
+
+      const gameData = gameSnap.data();
+
+      // Check if there's a pending draw offer
+      if (!gameData.drawOffer || gameData.drawOffer.status !== 'pending') {
+        throw new Error('No pending draw offer');
+      }
+
+      // Check if user is the recipient of the draw offer
+      const isWhitePlayer = gameData.whitePlayer.uid === currentUser.uid;
+      const isBlackPlayer = gameData.blackPlayer.uid === currentUser.uid;
+      const playerColor = isWhitePlayer ? 'white' : 'black';
+
+      if (gameData.drawOffer.to !== playerColor) {
+        throw new Error('This draw offer is not for you');
+      }
+
+      if (accept) {
+        // Accept draw - game ends in draw
+        await updateDoc(gameRef, {
+          status: 'completed',
+          winner: 'draw',
+          winReason: 'Draw by agreement',
+          drawOffer: {
+            ...gameData.drawOffer,
+            status: 'accepted',
+            responseTimestamp: serverTimestamp()
+          },
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        // Decline draw - game continues
+        await updateDoc(gameRef, {
+          drawOffer: {
+            ...gameData.drawOffer,
+            status: 'declined',
+            responseTimestamp: serverTimestamp()
+          },
+          updatedAt: serverTimestamp()
+        });
+      }
+
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch user's games
   const fetchUserGames = useCallback(async () => {
     if (!currentUser) return;
@@ -282,7 +443,10 @@ export const GameProvider = ({ children }) => {
     joinGame,
     makeMove,
     fetchUserGames,
-    listenToGame
+    listenToGame,
+    resignGame,
+    offerDraw,
+    respondToDraw
   };
 
   return (
