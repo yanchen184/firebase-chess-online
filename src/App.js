@@ -11,7 +11,7 @@ import Game from './components/Game';
 import NotFound from './components/NotFound';
 
 // Version display
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 
 function App() {
   const { currentUser, loading } = useAuth();
