@@ -13,6 +13,7 @@ import {
   wouldMoveResultInCheck,
   isPromotionMove
 } from '../utils/chess';
+import '../styles/ChessBoard.css';
 
 /**
  * ChessBoard component displays the chess board and handles piece movement.
