@@ -1,102 +1,158 @@
-# 双人象棋对战游戏 (Two-Player Chess Game)
+# Firebase Chess Online
 
-![版本](https://img.shields.io/badge/版本-1.0.1-blue.svg)
+Firebase Chess Online 是一個基於 React 和 Firebase 開發的在線國際象棋應用程序，允許玩家在線上進行即時象棋對戰。
 
-一个基于React和Firebase构建的双人在线象棋对战应用。玩家可以创建账户、发起对局、邀请其他玩家，并在线进行象棋对战。
+## 版本
 
-## 在线演示
+當前版本：v1.0.0
 
-访问 [https://yanchen184.github.io/firebase-chess-online](https://yanchen184.github.io/firebase-chess-online) 体验游戏
+## 功能概述
 
-## 功能特点
+### 已實現功能
 
-- 📝 用户注册与登录
-- 🎮 创建新的对局
-- 📧 通过电子邮件邀请对手
-- ♟️ 实时对战功能
-- 🔄 完整的象棋规则实现
-- 📱 响应式设计，支持各种屏幕尺寸
+- **完整的國際象棋規則**:
+  - [x] 基本棋子移動規則
+  - [x] 將軍檢查
+  - [x] 將死判斷
+  - [x] 和棋情況（僵局、不足子力、三次重複、50步規則等）
+  - [x] 兵的升變
+  - [x] 王車易位
+  - [x] 吃過路兵
 
-## 技术栈
+- **用戶系統**:
+  - [x] 使用 Firebase 身份驗證
+  - [x] 用戶註冊與登錄
+  - [x] 個人資料管理
 
-- **前端框架**: React
-- **状态管理**: React Context API
-- **路由**: React Router
-- **样式**: Tailwind CSS
-- **实时数据库**: Firebase Firestore
-- **认证**: Firebase Authentication
-- **部署**: GitHub Pages
+- **遊戲機制**:
+  - [x] 創建新遊戲
+  - [x] 加入現有遊戲
+  - [x] 顯示遊戲列表
+  - [x] 即時更新遊戲狀態
+  - [x] 投降功能
+  - [x] 和棋提議功能
+  - [x] 棋盤翻轉（根據玩家顏色）
+  - [x] 遊戲歷史記錄與回放
+  - [x] 國際象棋代數符號顯示
 
-## 本地开发
+- **界面**:
+  - [x] 響應式設計
+  - [x] 棋盤與棋子美觀顯示
+  - [x] 有效移動提示
+  - [x] 最後一步移動標記
+  - [x] 升變選擇介面
 
-1. 克隆仓库
-   ```bash
-   git clone https://github.com/yanchen184/firebase-chess-online.git
-   cd firebase-chess-online
-   ```
+### 待實現功能
 
-2. 安装依赖
-   ```bash
-   npm install
-   ```
+- **遊戲增強**:
+  - [ ] 時鐘/計時器
+  - [ ] ELO 評分系統
+  - [ ] 觀戰功能
+  - [ ] 遊戲聊天
+  - [ ] 悔棋請求
 
-3. 启动开发服务器
-   ```bash
-   npm start
-   ```
+- **用戶體驗**:
+  - [ ] 主題選擇（棋盤和棋子風格）
+  - [ ] 聲音效果
+  - [ ] 國際化支持
+  - [ ] 遊戲回放功能
+  - [ ] 移動動畫
 
-4. 打开浏览器访问 http://localhost:3000
+- **進階功能**:
+  - [ ] 對戰機器人
+  - [ ] 遊戲分析
+  - [ ] 殘局教學
+  - [ ] 線上錦標賽
+  - [ ] 好友列表
+  - [ ] 遊戲挑戰
 
-## Firebase 设置
+- **行動平台**:
+  - [ ] PWA 支持
+  - [ ] iOS 和 Android 應用
 
-本项目使用与 choiceLight 项目相同的 Firebase 配置，已在代码中设置好。如果遇到认证问题，请确保在 Firebase 控制台中：
+## 技術堆棧
 
-1. 项目 `choicelight-99618` 存在且状态正常
-2. 已启用 Email/Password 认证方法
-3. 已创建 Firestore 数据库（如果尚未创建）
+- **前端**:
+  - React
+  - Firebase SDK
+  - CSS Modules
 
-## 如何玩
+- **後端**:
+  - Firebase Firestore (資料庫)
+  - Firebase Authentication (身份驗證)
+  - Firebase Hosting (部署)
+  - Firebase Cloud Functions (伺服器功能)
 
-1. 注册账户或登录
-2. 在主面板中点击"创建游戏"
-3. 输入对手的电子邮件地址
-4. 将生成的游戏ID分享给对手
-5. 对手接受邀请后，游戏开始
-6. 轮流移动棋子进行对战
+## 架構
+
+該項目使用模塊化架構，將國際象棋邏輯拆分為更小、更專注的模塊：
+
+```
+src/utils/chess/
+├── index.js                 // 主要導出點
+├── board.js                 // 棋盤相關函數
+├── pieces.js                // 棋子相關函數
+├── moves/
+│   ├── index.js            // 移動相關的主函數
+│   ├── pawn.js             // 兵的移動邏輯
+│   ├── rook.js             // 車的移動邏輯
+│   ├── knight.js           // 馬的移動邏輯
+│   ├── bishop.js           // 象的移動邏輯
+│   ├── queen.js            // 后的移動邏輯
+│   └── king.js             // 王的移動邏輯
+├── rules/
+│   ├── index.js            // 規則相關的主函數
+│   ├── check.js            // 將軍/將死相關
+│   ├── castling.js         // 王車易位
+│   ├── enPassant.js        // 吃過路兵
+│   ├── promotion.js        // 兵的升變
+│   └── draw.js             // 和棋條件
+└── utils.js                // 通用工具函數
+```
+
+## 安裝與設置
+
+### 前提條件
+
+- Node.js (v14 或更高)
+- npm 或 yarn
+- Firebase 帳號
+
+### 安裝
+
+1. 克隆資源庫
+```bash
+git clone https://github.com/yanchen184/firebase-chess-online.git
+cd firebase-chess-online
+```
+
+2. 安裝依賴
+```bash
+npm install
+```
+
+3. 設置 Firebase
+   - 在 Firebase 控制台創建新項目
+   - 啟用 Authentication 和 Firestore
+   - 設置身份驗證方法 (郵件和密碼)
+   - 創建 `.env` 檔案並添加 Firebase 配置
+
+4. 啟動開發伺服器
+```bash
+npm start
+```
 
 ## 部署
 
-项目配置了GitHub Actions，当代码推送到main分支时会自动构建并部署到GitHub Pages。
+```bash
+npm run build
+firebase deploy
+```
 
-## 故障排除
+## 貢獻
 
-如果遇到 "CONFIGURATION_NOT_FOUND" 错误，请尝试以下解决方案：
+歡迎貢獻！請隨時提交 Pull Requests 或創建 Issues。
 
-1. 确保在 Firebase 控制台中启用了 Authentication 服务
-   - 登录 [Firebase 控制台](https://console.firebase.google.com/)
-   - 选择项目 "choicelight-99618"
-   - 点击左侧导航栏中的 "Authentication"
-   - 进入 "Sign-in method" 标签
-   - 确保 "Email/Password" 方法已启用
+## 許可證
 
-2. 确保在 Firebase 控制台中创建了 Firestore 数据库
-   - 在同一项目中点击 "Firestore Database"
-   - 如果尚未创建，点击 "创建数据库"
-   - 选择适当的起始模式（测试模式或生产模式）
-
-3. 检查浏览器控制台中的详细错误信息，以获取更多诊断信息
-
-## 更新日志
-
-### v1.0.1 (2025-05-05)
-- 修复了 Firebase Firestore 嵌套数组错误
-- 将棋盘数据结构从二维数组改为一维对象数组
-- 修复了游戏邀请查询逻辑，被邀请的玩家现在可以看到待处理的游戏
-- 改进了通过电子邮件邀请玩家的功能
-
-### v1.0.0 (2025-04-23)
-- 初始版本发布
-
-## 许可证
-
-MIT
+MIT 許可證
