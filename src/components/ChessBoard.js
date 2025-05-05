@@ -24,7 +24,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
   const [flipped, setFlipped] = useState(false);
   
   const playerColor = getPlayerColor(userId, game);
-  const canPlay = isPlayerTurn(userId, game);
+  const canPlay = isPlayerTurn(userId, game) && game.status === 'active';
   
   // Debug information
   useEffect(() => {
@@ -33,29 +33,30 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
       playerColor,
       currentTurn,
       selectedSquare,
-      validMoves
+      validMoves,
+      gameStatus: game.status
     });
-  }, [canPlay, playerColor, currentTurn, selectedSquare, validMoves]);
+  }, [canPlay, playerColor, currentTurn, selectedSquare, validMoves, game.status]);
   
   // Determine if board should be flipped based on player color
   useEffect(() => {
     setFlipped(playerColor === 'black');
   }, [playerColor]);
   
-  // Reset selection when turn changes
+  // Reset selection when turn changes or game ends
   useEffect(() => {
     setSelectedSquare(null);
     setValidMoves([]);
-  }, [currentTurn]);
+  }, [currentTurn, game.status]);
   
   // When a square is clicked
   const handleSquareClick = (row, col) => {
     console.log(`Square clicked: ${row}, ${col}`);
-    console.log(`Can play: ${canPlay}`);
+    console.log(`Can play: ${canPlay}, Game status: ${game.status}`);
     
-    // Don't allow moves if it's not the player's turn
+    // Don't allow moves if it's not the player's turn or game is completed
     if (!canPlay) {
-      console.log("Not player's turn");
+      console.log("Cannot move - not player's turn or game is completed");
       return;
     }
     
@@ -308,6 +309,7 @@ const ChessBoard = ({ board, currentTurn, onMove, userId, game }) => {
               ${isSelected ? 'selected' : ''}
               ${isValidMove && !isValidCapture ? 'valid-move' : ''}
               ${isValidCapture ? 'valid-capture' : ''}
+              ${game.status === 'completed' ? 'cursor-not-allowed' : ''}
             `}
             onClick={() => handleSquareClick(actualRow, actualCol)}
           >
