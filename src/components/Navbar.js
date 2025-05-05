@@ -1,17 +1,17 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import packageJson from '../../package.json';
 
 /**
  * Navbar component for the application.
  * Displays the app title, navigation links, and user authentication status.
- * Automatically displays the current version from package.json
+ * Automatically displays the current version from environment
  */
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  const version = packageJson.version;
+  // 硬编码版本号，在构建时会被更新
+  const version = '1.0.2';
 
   const handleLogout = async () => {
     try {
