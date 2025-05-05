@@ -180,27 +180,36 @@ export const GameProvider = ({ children }) => {
     try {
       setLoading(true);
 
-      // Query where user is either white or black player
+      // Query where user is white player (by uid)
       const q1 = query(
         collection(db, 'games'),
         where('whitePlayer.uid', '==', currentUser.uid)
       );
       
+      // Query where user is black player (by uid) - for active/completed games
       const q2 = query(
         collection(db, 'games'),
         where('blackPlayer.uid', '==', currentUser.uid)
       );
+      
+      // Query where user is black player (by email) - for pending invitations
+      const q3 = query(
+        collection(db, 'games'),
+        where('blackPlayer.email', '==', currentUser.email)
+      );
 
-      const [snapshot1, snapshot2] = await Promise.all([
+      const [snapshot1, snapshot2, snapshot3] = await Promise.all([
         getDocs(q1),
-        getDocs(q2)
+        getDocs(q2),
+        getDocs(q3)
       ]);
 
       const games1 = snapshot1.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const games2 = snapshot2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const games3 = snapshot3.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       // Combine and deduplicate
-      const allGames = [...games1, ...games2];
+      const allGames = [...games1, ...games2, ...games3];
       const uniqueGames = allGames.filter((game, index, self) =>
         index === self.findIndex(g => g.id === game.id)
       );
