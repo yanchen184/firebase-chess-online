@@ -72,6 +72,38 @@ export const setPieceAtPosition = (board, position, piece) => {
 };
 
 /**
+ * Checks if the king of a specific color is on the board.
+ * @param {Array} board - The board array
+ * @param {string} color - The color to check ('white' or 'black')
+ * @returns {boolean} True if the king exists, false otherwise
+ */
+export const isKingAlive = (board, color) => {
+  return board.some(cell => 
+    cell.piece && cell.piece.type === 'king' && cell.piece.color === color
+  );
+};
+
+/**
+ * Determines the game outcome based on the board state.
+ * @param {Array} board - The board array
+ * @returns {Object|null} Game outcome {winner: 'white'|'black', reason: string} or null if game continues
+ */
+export const checkGameOutcome = (board) => {
+  const whiteKingAlive = isKingAlive(board, 'white');
+  const blackKingAlive = isKingAlive(board, 'black');
+  
+  if (!whiteKingAlive) {
+    return { winner: 'black', reason: 'White king captured' };
+  }
+  
+  if (!blackKingAlive) {
+    return { winner: 'white', reason: 'Black king captured' };
+  }
+  
+  return null; // Game continues
+};
+
+/**
  * Converts a board position (e.g., "e4") to array indices [row, col].
  * @param {string} position - Chess notation position (e.g., "e4")
  * @returns {Array} Array with [row, col] indices
