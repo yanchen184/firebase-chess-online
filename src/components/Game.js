@@ -113,6 +113,9 @@ const Game = () => {
           <div>
             <span className="font-bold">Current Turn:</span>{' '}
             <span className="capitalize">{currentGame.currentTurn}</span>
+            {isMyTurn && (
+              <span className="ml-2 text-green-600 font-bold">(Your turn!)</span>
+            )}
           </div>
         </div>
         
@@ -126,12 +129,6 @@ const Game = () => {
             {currentGame.blackPlayer.displayName || currentGame.blackPlayer.email || 'Waiting for opponent'}
           </div>
         </div>
-        
-        {isMyTurn && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mt-3">
-            It's your turn!
-          </div>
-        )}
         
         {isPendingInvitation && (
           <div className="mt-4">
