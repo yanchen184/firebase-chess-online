@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/firebase-chess-online/static/css/main.269cad9f.css",
-    "main.js": "/firebase-chess-online/static/js/main.3c1e6def.js",
+    "main.js": "/firebase-chess-online/static/js/main.dfee8fa7.js",
     "index.html": "/firebase-chess-online/index.html",
     "main.269cad9f.css.map": "/firebase-chess-online/static/css/main.269cad9f.css.map",
-    "main.3c1e6def.js.map": "/firebase-chess-online/static/js/main.3c1e6def.js.map"
+    "main.dfee8fa7.js.map": "/firebase-chess-online/static/js/main.dfee8fa7.js.map"
   },
   "entrypoints": [
     "static/css/main.269cad9f.css",
-    "static/js/main.3c1e6def.js"
+    "static/js/main.dfee8fa7.js"
   ]
 }
