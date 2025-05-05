@@ -87,6 +87,7 @@ const Game = () => {
   const isMyTurn = isPlayerTurn(currentUser.uid, currentGame);
   const isPending = currentGame.status === 'pending';
   const isPlayer = playerColor !== null;
+  const isCompleted = currentGame.status === 'completed';
   
   // Pending invitation that belongs to the current user
   const isPendingInvitation = isPending && currentGame.blackPlayer.email === currentUser.email;
@@ -113,7 +114,7 @@ const Game = () => {
           <div>
             <span className="font-bold">Current Turn:</span>{' '}
             <span className="capitalize">{currentGame.currentTurn}</span>
-            {isMyTurn && (
+            {isMyTurn && !isCompleted && (
               <span className="ml-2 text-green-600 font-bold">(Your turn!)</span>
             )}
           </div>
@@ -129,6 +130,15 @@ const Game = () => {
             {currentGame.blackPlayer.displayName || currentGame.blackPlayer.email || 'Waiting for opponent'}
           </div>
         </div>
+        
+        {isCompleted && currentGame.winner && (
+          <div className="mt-4 p-4 bg-yellow-100 border border-yellow-400 rounded">
+            <h3 className="text-lg font-bold text-yellow-800">
+              Game Over! {currentGame.winner.charAt(0).toUpperCase() + currentGame.winner.slice(1)} wins!
+            </h3>
+            <p className="text-yellow-700">{currentGame.winReason}</p>
+          </div>
+        )}
         
         {isPendingInvitation && (
           <div className="mt-4">
@@ -193,6 +203,7 @@ const Game = () => {
                   <th className="px-4 py-2">From</th>
                   <th className="px-4 py-2">To</th>
                   <th className="px-4 py-2">Piece</th>
+                  <th className="px-4 py-2">Captured</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,6 +222,9 @@ const Game = () => {
                       <td className="border px-4 py-2 text-center">{move.from}</td>
                       <td className="border px-4 py-2 text-center">{move.to}</td>
                       <td className="border px-4 py-2 text-center">{move.piece?.type}</td>
+                      <td className="border px-4 py-2 text-center">
+                        {move.capturedPiece ? move.capturedPiece.type : '-'}
+                      </td>
                     </tr>
                   );
                 })}
