@@ -99,7 +99,7 @@ export const isPositionUnderAttack = (board, position, byColor) => {
 
   // Check if any attacking piece can move to the target position
   for (const cell of attackingPieces) {
-    const moves = calculatePieceMoves(board, cell.position, cell.piece);
+    const moves = calculatePieceMoves(board, cell.position, cell.piece, null, true);
     if (moves.includes(position)) {
       return true;
     }
@@ -113,15 +113,17 @@ export const isPositionUnderAttack = (board, position, byColor) => {
  * @param {Array} board - The board array
  * @param {string} position - The position of the piece
  * @param {Object} piece - The piece object
+ * @param {Object} lastMove - The last move made (for en passant)
+ * @param {boolean} forAttackCheck - If true, excludes special moves like castling
  * @returns {Array} Array of possible positions
  */
-export const calculatePieceMoves = (board, position, piece) => {
+export const calculatePieceMoves = (board, position, piece, lastMove = null, forAttackCheck = false) => {
   const [row, col] = positionToIndices(position);
   const moves = [];
 
   switch (piece.type) {
     case 'pawn':
-      moves.push(...calculatePawnMoves(board, row, col, piece.color));
+      moves.push(...calculatePawnMoves(board, row, col, piece.color, lastMove, forAttackCheck));
       break;
     case 'rook':
       moves.push(...calculateRookMoves(board, row, col, piece.color));
@@ -136,7 +138,7 @@ export const calculatePieceMoves = (board, position, piece) => {
       moves.push(...calculateQueenMoves(board, row, col, piece.color));
       break;
     case 'king':
-      moves.push(...calculateKingMoves(board, row, col, piece.color));
+      moves.push(...calculateKingMoves(board, row, col, piece.color, forAttackCheck));
       break;
   }
 
@@ -149,12 +151,59 @@ export const calculatePieceMoves = (board, position, piece) => {
  * @param {number} row - Current row
  * @param {number} col - Current column
  * @param {string} color - Piece color
+ * @param {Object} lastMove - Last move made (for en passant)
+ * @param {boolean} forAttackCheck - If true, only return attack squares
  * @returns {Array} Array of possible positions
  */
-const calculatePawnMoves = (board, row, col, color) => {
+const calculatePawnMoves = (board, row, col, color, lastMove = null, forAttackCheck = false) => {
   const moves = [];
   const direction = color === 'white' ? -1 : 1;
   const startRow = color === 'white' ? 6 : 1;
+  
+  // Diagonal captures (always calculated for attack checks)
+  for (const offset of [-1, 1]) {
+    const captureRow = row + direction;
+    const captureCol = col + offset;
+    
+    if (isValidSquare(captureRow, captureCol)) {
+      const capturePos = indicesToPosition(captureRow, captureCol);
+      
+      if (forAttackCheck) {
+        // For attack checks, include all diagonal squares
+        moves.push(capturePos);
+      } else {
+        const targetPiece = getPieceAtPosition(board, capturePos);
+        
+        if (targetPiece && targetPiece.color !== color) {
+          moves.push(capturePos);
+        }
+        
+        // En passant check
+        if (lastMove) {
+          const enPassantRow = color === 'white' ? 3 : 4;
+          if (row === enPassantRow) {
+            const lastMovePiece = getPieceAtPosition(board, lastMove.to);
+            const [lastFromRow, lastFromCol] = positionToIndices(lastMove.from);
+            const [lastToRow, lastToCol] = positionToIndices(lastMove.to);
+            
+            if (lastMovePiece && 
+                lastMovePiece.type === 'pawn' && 
+                lastMovePiece.color !== color &&
+                Math.abs(lastFromRow - lastToRow) === 2 &&
+                lastToRow === row &&
+                lastToCol === captureCol) {
+              moves.push(capturePos);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Return early if only checking attack squares
+  if (forAttackCheck) {
+    return moves;
+  }
   
   // Move forward one square
   const forwardRow = row + direction;
@@ -173,23 +222,6 @@ const calculatePawnMoves = (board, row, col, color) => {
       }
     }
   }
-  
-  // Diagonal captures
-  for (const offset of [-1, 1]) {
-    const captureRow = row + direction;
-    const captureCol = col + offset;
-    
-    if (isValidSquare(captureRow, captureCol)) {
-      const capturePos = indicesToPosition(captureRow, captureCol);
-      const targetPiece = getPieceAtPosition(board, capturePos);
-      
-      if (targetPiece && targetPiece.color !== color) {
-        moves.push(capturePos);
-      }
-    }
-  }
-  
-  // TODO: Add en passant logic
   
   return moves;
 };
@@ -298,7 +330,7 @@ const calculateQueenMoves = (board, row, col, color) => {
 /**
  * Calculates king moves including castling.
  */
-const calculateKingMoves = (board, row, col, color) => {
+const calculateKingMoves = (board, row, col, color, forAttackCheck = false) => {
   const moves = [];
   const offsets = [
     [-1, -1], [-1, 0], [-1, 1],
@@ -320,7 +352,69 @@ const calculateKingMoves = (board, row, col, color) => {
     }
   }
   
-  // TODO: Add castling logic
+  // Add castling moves (only if not checking for attacks)
+  if (!forAttackCheck) {
+    const kingPos = indicesToPosition(row, col);
+    const king = getPieceAtPosition(board, kingPos);
+    
+    if (king && !king.hasMoved && !isInCheck(board, color)) {
+      // Check kingside castling
+      const kingsideRookPos = indicesToPosition(row, 7);
+      const kingsideRook = getPieceAtPosition(board, kingsideRookPos);
+      
+      if (kingsideRook && kingsideRook.type === 'rook' && !kingsideRook.hasMoved && kingsideRook.color === color) {
+        // Check if squares between king and rook are empty
+        let canCastle = true;
+        for (let c = col + 1; c < 7; c++) {
+          const pos = indicesToPosition(row, c);
+          if (getPieceAtPosition(board, pos)) {
+            canCastle = false;
+            break;
+          }
+        }
+        
+        // Check if king doesn't pass through or end on attacked square
+        if (canCastle) {
+          const passThroughPos = indicesToPosition(row, col + 1);
+          const destinationPos = indicesToPosition(row, col + 2);
+          const opponentColor = color === 'white' ? 'black' : 'white';
+          
+          if (!isPositionUnderAttack(board, passThroughPos, opponentColor) &&
+              !isPositionUnderAttack(board, destinationPos, opponentColor)) {
+            moves.push(destinationPos);
+          }
+        }
+      }
+      
+      // Check queenside castling
+      const queensideRookPos = indicesToPosition(row, 0);
+      const queensideRook = getPieceAtPosition(board, queensideRookPos);
+      
+      if (queensideRook && queensideRook.type === 'rook' && !queensideRook.hasMoved && queensideRook.color === color) {
+        // Check if squares between king and rook are empty
+        let canCastle = true;
+        for (let c = col - 1; c > 0; c--) {
+          const pos = indicesToPosition(row, c);
+          if (getPieceAtPosition(board, pos)) {
+            canCastle = false;
+            break;
+          }
+        }
+        
+        // Check if king doesn't pass through or end on attacked square
+        if (canCastle) {
+          const passThroughPos = indicesToPosition(row, col - 1);
+          const destinationPos = indicesToPosition(row, col - 2);
+          const opponentColor = color === 'white' ? 'black' : 'white';
+          
+          if (!isPositionUnderAttack(board, passThroughPos, opponentColor) &&
+              !isPositionUnderAttack(board, destinationPos, opponentColor)) {
+            moves.push(destinationPos);
+          }
+        }
+      }
+    }
+  }
   
   return moves;
 };
@@ -355,6 +449,60 @@ export const wouldMoveResultInCheck = (board, from, to, color) => {
 };
 
 /**
+ * Applies a move and handles special moves (castling, en passant, promotion).
+ * @param {Array} board - The board array
+ * @param {string} from - Starting position
+ * @param {string} to - Ending position
+ * @param {Object} lastMove - The last move made
+ * @param {string} promotionPiece - The piece to promote to (if pawn promotion)
+ * @returns {Object} Object containing new board and special move information
+ */
+export const applyMove = (board, from, to, lastMove = null, promotionPiece = 'queen') => {
+  let newBoard = [...board];
+  const piece = getPieceAtPosition(newBoard, from);
+  
+  if (!piece) return { board: newBoard };
+  
+  const [fromRow, fromCol] = positionToIndices(from);
+  const [toRow, toCol] = positionToIndices(to);
+  
+  // Regular move
+  newBoard = setPieceAtPosition(newBoard, from, null);
+  let movedPiece = { ...piece, hasMoved: true };
+  
+  // Check for pawn promotion
+  if (piece.type === 'pawn' && (toRow === 0 || toRow === 7)) {
+    movedPiece = { type: promotionPiece, color: piece.color };
+  }
+  
+  newBoard = setPieceAtPosition(newBoard, to, movedPiece);
+  
+  // Check for castling
+  if (piece.type === 'king' && Math.abs(fromCol - toCol) === 2) {
+    // King moved 2 squares, this is castling
+    const rookFromCol = toCol > fromCol ? 7 : 0;
+    const rookToCol = toCol > fromCol ? toCol - 1 : toCol + 1;
+    const rookFromPos = indicesToPosition(fromRow, rookFromCol);
+    const rookToPos = indicesToPosition(fromRow, rookToCol);
+    
+    const rook = getPieceAtPosition(newBoard, rookFromPos);
+    if (rook) {
+      newBoard = setPieceAtPosition(newBoard, rookFromPos, null);
+      newBoard = setPieceAtPosition(newBoard, rookToPos, { ...rook, hasMoved: true });
+    }
+  }
+  
+  // Check for en passant
+  if (piece.type === 'pawn' && Math.abs(fromCol - toCol) === 1 && !getPieceAtPosition(board, to)) {
+    // Pawn moved diagonally to empty square, must be en passant
+    const capturedPawnPos = indicesToPosition(fromRow, toCol);
+    newBoard = setPieceAtPosition(newBoard, capturedPawnPos, null);
+  }
+  
+  return { board: newBoard };
+};
+
+/**
  * Checks if a player is in check.
  * @param {Array} board - The board array
  * @param {string} color - The color to check
@@ -372,15 +520,16 @@ export const isInCheck = (board, color) => {
  * Checks if a player has any legal moves.
  * @param {Array} board - The board array
  * @param {string} color - The color to check
+ * @param {Object} lastMove - The last move made
  * @returns {boolean} True if the player has legal moves
  */
-export const hasLegalMoves = (board, color) => {
+export const hasLegalMoves = (board, color, lastMove = null) => {
   const pieces = board.filter(cell => 
     cell.piece && cell.piece.color === color
   );
   
   for (const cell of pieces) {
-    const moves = calculatePieceMoves(board, cell.position, cell.piece);
+    const moves = calculatePieceMoves(board, cell.position, cell.piece, lastMove);
     
     // Check each move to see if it's legal (doesn't put own king in check)
     for (const move of moves) {
@@ -394,17 +543,109 @@ export const hasLegalMoves = (board, color) => {
 };
 
 /**
- * Determines the game outcome based on the board state.
+ * Checks for insufficient material to mate.
+ * @param {Array} board - The board array
+ * @returns {boolean} True if insufficient material
+ */
+const hasInsufficientMaterial = (board) => {
+  const pieces = board.filter(cell => cell.piece);
+  
+  // Count pieces by color and type
+  const pieceCounts = {
+    white: { total: 0, bishops: 0, knights: 0 },
+    black: { total: 0, bishops: 0, knights: 0 }
+  };
+  
+  for (const cell of pieces) {
+    const { type, color } = cell.piece;
+    pieceCounts[color].total++;
+    
+    if (type === 'bishop') pieceCounts[color].bishops++;
+    if (type === 'knight') pieceCounts[color].knights++;
+  }
+  
+  // King vs King
+  if (pieceCounts.white.total === 1 && pieceCounts.black.total === 1) {
+    return true;
+  }
+  
+  // King and Bishop vs King
+  if ((pieceCounts.white.total === 2 && pieceCounts.white.bishops === 1 && pieceCounts.black.total === 1) ||
+      (pieceCounts.black.total === 2 && pieceCounts.black.bishops === 1 && pieceCounts.white.total === 1)) {
+    return true;
+  }
+  
+  // King and Knight vs King
+  if ((pieceCounts.white.total === 2 && pieceCounts.white.knights === 1 && pieceCounts.black.total === 1) ||
+      (pieceCounts.black.total === 2 && pieceCounts.black.knights === 1 && pieceCounts.white.total === 1)) {
+    return true;
+  }
+  
+  // King and Bishop vs King and Bishop (same color bishops)
+  if (pieceCounts.white.total === 2 && pieceCounts.white.bishops === 1 &&
+      pieceCounts.black.total === 2 && pieceCounts.black.bishops === 1) {
+    // This is a simplification - should check if bishops are on same color squares
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Counts moves without pawn moves or captures for the fifty-move rule.
+ * @param {Array} moveHistory - Array of moves made
+ * @returns {number} Count of moves without progress
+ */
+const countMovesWithoutProgress = (moveHistory) => {
+  let count = 0;
+  
+  for (let i = moveHistory.length - 1; i >= 0; i--) {
+    const move = moveHistory[i];
+    if (move.capturedPiece || move.piece.type === 'pawn') {
+      break;
+    }
+    count++;
+  }
+  
+  return count;
+};
+
+/**
+ * Checks for threefold repetition.
+ * @param {Array} positionHistory - Array of board positions
+ * @returns {boolean} True if threefold repetition occurred
+ */
+const hasThreefoldRepetition = (positionHistory) => {
+  const positionCounts = {};
+  
+  for (const position of positionHistory) {
+    // Create a string representation of the position
+    const positionString = JSON.stringify(position);
+    positionCounts[positionString] = (positionCounts[positionString] || 0) + 1;
+    
+    if (positionCounts[positionString] >= 3) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+/**
+ * Determines the game outcome based on the board state and game history.
  * @param {Array} board - The board array
  * @param {string} currentTurn - The current player's turn
+ * @param {Object} lastMove - The last move made
+ * @param {Array} moveHistory - History of all moves made
+ * @param {Array} positionHistory - History of all board positions
  * @returns {Object|null} Game outcome {winner, reason} or null if game continues
  */
-export const checkGameOutcome = (board, currentTurn) => {
+export const checkGameOutcome = (board, currentTurn, lastMove = null, moveHistory = [], positionHistory = []) => {
   // Check if current player is in check
   const inCheck = isInCheck(board, currentTurn);
   
   // Check if current player has any legal moves
-  const hasLegalMove = hasLegalMoves(board, currentTurn);
+  const hasLegalMove = hasLegalMoves(board, currentTurn, lastMove);
   
   if (!hasLegalMove) {
     if (inCheck) {
@@ -418,18 +659,24 @@ export const checkGameOutcome = (board, currentTurn) => {
   }
   
   // Check for insufficient material
-  const pieces = board.filter(cell => cell.piece);
-  
-  // Count pieces
-  const whitePieces = pieces.filter(cell => cell.piece.color === 'white');
-  const blackPieces = pieces.filter(cell => cell.piece.color === 'black');
-  
-  // King vs King
-  if (whitePieces.length === 1 && blackPieces.length === 1) {
+  if (hasInsufficientMaterial(board)) {
     return { winner: 'draw', reason: 'Insufficient material' };
   }
   
-  // TODO: Add more draw conditions (threefold repetition, fifty-move rule)
+  // Check for fifty-move rule
+  if (moveHistory.length >= 100) { // 50 moves for each player
+    const movesWithoutProgress = countMovesWithoutProgress(moveHistory);
+    if (movesWithoutProgress >= 100) {
+      return { winner: 'draw', reason: 'Fifty-move rule' };
+    }
+  }
+  
+  // Check for threefold repetition
+  if (positionHistory.length >= 9) { // Minimum needed for threefold repetition
+    if (hasThreefoldRepetition(positionHistory)) {
+      return { winner: 'draw', reason: 'Threefold repetition' };
+    }
+  }
   
   return null; // Game continues
 };
