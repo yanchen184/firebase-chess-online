@@ -14,7 +14,11 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { initialBoardSetup } from '../utils/chessUtils';
+import { 
+  initialBoardSetup, 
+  getPieceAtPosition, 
+  setPieceAtPosition
+} from '../utils/chessUtils';
 
 // Create game context
 export const GameContext = createContext();
@@ -146,19 +150,12 @@ export const GameProvider = ({ children }) => {
         timestamp: serverTimestamp()
       };
 
-      // Update the board
-      const newBoard = [...gameData.board];
+      // Update the board using the new flat structure
+      let newBoard = [...gameData.board];
       
-      // Move piece logic - simplified for now
-      // In a real app, would need to validate move is legal
-      const fromRow = parseInt(from.charAt(1)) - 1;
-      const fromCol = from.charCodeAt(0) - 97;
-      const toRow = parseInt(to.charAt(1)) - 1;
-      const toCol = to.charCodeAt(0) - 97;
-
-      // Update board
-      newBoard[toRow][toCol] = newBoard[fromRow][fromCol];
-      newBoard[fromRow][fromCol] = null;
+      // Remove piece from 'from' position and add to 'to' position
+      newBoard = setPieceAtPosition(newBoard, from, null);
+      newBoard = setPieceAtPosition(newBoard, to, piece);
 
       // Update game
       await updateDoc(gameRef, {
