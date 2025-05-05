@@ -1,0 +1,34 @@
+/* App container */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Main content area */
+.app-content {
+  flex: 1;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Loading indicator */
+.app-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100%;
+  font-size: 1.5rem;
+  color: #333;
+  background-color: #f0f2f5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .app-content {
+    padding: 0.5rem;
+  }
+}
