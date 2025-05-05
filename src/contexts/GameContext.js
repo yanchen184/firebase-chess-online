@@ -18,7 +18,8 @@ import { db } from '../services/firebase';
 import { 
   initialBoardSetup, 
   getPieceAtPosition, 
-  setPieceAtPosition
+  setPieceAtPosition,
+  checkGameOutcome
 } from '../utils/chessUtils';
 
 // Create game context
@@ -132,6 +133,11 @@ export const GameProvider = ({ children }) => {
 
       const gameData = gameSnap.data();
 
+      // Check if game is already completed
+      if (gameData.status === 'completed') {
+        throw new Error('Game is already completed');
+      }
+
       // Verify it's the player's turn
       const isWhitePlayer = gameData.whitePlayer.uid === currentUser.uid;
       const isBlackPlayer = gameData.blackPlayer.uid === currentUser.uid;
@@ -142,13 +148,17 @@ export const GameProvider = ({ children }) => {
         throw new Error('Not your turn');
       }
 
+      // Get the captured piece (if any)
+      const capturedPiece = getPieceAtPosition(gameData.board, to);
+
       // Create move record with client timestamp
       const move = {
         player: currentUser.uid,
         from,
         to,
         piece,
-        timestamp: Timestamp.now() // Use Timestamp.now() instead of serverTimestamp()
+        capturedPiece: capturedPiece || null,
+        timestamp: Timestamp.now()
       };
 
       // Update the board using the new flat structure
@@ -158,13 +168,26 @@ export const GameProvider = ({ children }) => {
       newBoard = setPieceAtPosition(newBoard, from, null);
       newBoard = setPieceAtPosition(newBoard, to, piece);
 
-      // Update game
-      await updateDoc(gameRef, {
+      // Check for game outcome
+      const gameOutcome = checkGameOutcome(newBoard);
+      
+      // Prepare update data
+      const updateData = {
         board: newBoard,
         moves: arrayUnion(move),
         currentTurn: gameData.currentTurn === 'white' ? 'black' : 'white',
         updatedAt: serverTimestamp()
-      });
+      };
+
+      // If game is over, update status and add winner information
+      if (gameOutcome) {
+        updateData.status = 'completed';
+        updateData.winner = gameOutcome.winner;
+        updateData.winReason = gameOutcome.reason;
+      }
+
+      // Update game
+      await updateDoc(gameRef, updateData);
 
     } catch (error) {
       setError(error.message);
