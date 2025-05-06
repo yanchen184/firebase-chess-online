@@ -12,8 +12,8 @@ import {
   positionToIndices,
 } from '../utils/chess';
 import { 
-  makeMove,
-  resignGame,
+  makeChessMove,
+  resignChessGame,
   offerDraw,
   acceptDraw,
   declineDraw,
@@ -123,7 +123,7 @@ const Game = () => {
       });
       
       // Update Firebase with the move
-      await makeMove(gameId, from, to, piece, newBoard, moveInfo);
+      await makeChessMove(gameId, from, to, piece, newBoard, moveInfo);
       
       // If there's a game outcome, update game status
       if (outcome) {
@@ -226,7 +226,7 @@ const Game = () => {
         player: resigningPlayer
       });
       
-      await resignGame(gameId, resigningColor);
+      await resignChessGame(gameId, resigningColor);
     } catch (err) {
       console.error('Error resigning game:', err);
       setError('無法投降');
