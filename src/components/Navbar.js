@@ -11,7 +11,7 @@ const Navbar = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   // 硬編碼版本號，在構建時會被更新
-  const version = '1.0.3';
+  const version = '1.0.4';
 
   const handleLogout = async () => {
     try {
